@@ -45,4 +45,4 @@ _Populate as you build — sharp edges, "always run X before Y" rules._
 - See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and package details
 
 
-ai / bot that plays blackjack for user on there account and tries to win 
+ai / bot that plays blackjack for user on there account discord and tries to win bot logs into user account and plays blackjack for them on a certain server that has a bot called kaos bot and you can play blackjack with it to win scrap
