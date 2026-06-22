@@ -3,13 +3,19 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: Blackjack Bot API specification
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: bot
+    description: Bot control and configuration
+  - name: stats
+    description: Game statistics
+  - name: sessions
+    description: Game sessions
 paths:
   /healthz:
     get:
@@ -24,6 +30,194 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /bot/config:
+    get:
+      operationId: getBotConfig
+      tags: [bot]
+      summary: Get bot configuration
+      responses:
+        "200":
+          description: Bot configuration
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BotConfig"
+    put:
+      operationId: updateBotConfig
+      tags: [bot]
+      summary: Update bot configuration
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BotConfigInput"
+      responses:
+        "200":
+          description: Updated bot configuration
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BotConfig"
+
+  /bot/status:
+    get:
+      operationId: getBotStatus
+      tags: [bot]
+      summary: Get current bot status
+      responses:
+        "200":
+          description: Bot status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BotStatus"
+
+  /bot/start:
+    post:
+      operationId: startBot
+      tags: [bot]
+      summary: Start the blackjack bot
+      responses:
+        "200":
+          description: Bot started
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BotStatus"
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /bot/stop:
+    post:
+      operationId: stopBot
+      tags: [bot]
+      summary: Stop the blackjack bot
+      responses:
+        "200":
+          description: Bot stopped
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BotStatus"
+
+  /stats:
+    get:
+      operationId: getStats
+      tags: [stats]
+      summary: Get overall game statistics
+      responses:
+        "200":
+          description: Overall stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Stats"
+
+  /sessions:
+    get:
+      operationId: getSessions
+      tags: [sessions]
+      summary: List game sessions
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+      responses:
+        "200":
+          description: List of sessions
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  sessions:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/GameSession"
+                  total:
+                    type: integer
+                required:
+                  - sessions
+                  - total
+
+  /sessions/{id}/hands:
+    get:
+      operationId: getSessionHands
+      tags: [sessions]
+      summary: Get hands for a session
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+      responses:
+        "200":
+          description: List of hands
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  hands:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/GameHand"
+                  total:
+                    type: integer
+                required:
+                  - hands
+                  - total
+
+  /logs:
+    get:
+      operationId: getLogs
+      tags: [bot]
+      summary: Get recent bot log entries
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 100
+      responses:
+        "200":
+          description: Log entries
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  logs:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/LogEntry"
+                required:
+                  - logs
+
 components:
   schemas:
     HealthStatus:
@@ -34,3 +228,257 @@ components:
       required:
         - status
 
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+      required:
+        - error
+
+    BotConfig:
+      type: object
+      properties:
+        id:
+          type: integer
+        discordToken:
+          type: string
+        serverId:
+          type: string
+        channelId:
+          type: string
+        kaosPrefix:
+          type: string
+        kaosUserId:
+          type: string
+        betAmount:
+          type: integer
+        strategy:
+          type: string
+          enum: [basic, aggressive, conservative]
+        delayMin:
+          type: integer
+        delayMax:
+          type: integer
+        maxGames:
+          type: integer
+          nullable: true
+        stopOnLoss:
+          type: integer
+          nullable: true
+        stopOnWin:
+          type: integer
+          nullable: true
+        enabled:
+          type: boolean
+      required:
+        - id
+        - discordToken
+        - serverId
+        - channelId
+        - kaosPrefix
+        - kaosUserId
+        - betAmount
+        - strategy
+        - delayMin
+        - delayMax
+        - enabled
+
+    BotConfigInput:
+      type: object
+      properties:
+        discordToken:
+          type: string
+        serverId:
+          type: string
+        channelId:
+          type: string
+        kaosPrefix:
+          type: string
+        kaosUserId:
+          type: string
+        betAmount:
+          type: integer
+        strategy:
+          type: string
+          enum: [basic, aggressive, conservative]
+        delayMin:
+          type: integer
+        delayMax:
+          type: integer
+        maxGames:
+          type: integer
+          nullable: true
+        stopOnLoss:
+          type: integer
+          nullable: true
+        stopOnWin:
+          type: integer
+          nullable: true
+      required:
+        - discordToken
+        - serverId
+        - channelId
+        - kaosPrefix
+        - kaosUserId
+        - betAmount
+        - strategy
+        - delayMin
+        - delayMax
+
+    BotStatus:
+      type: object
+      properties:
+        running:
+          type: boolean
+        connected:
+          type: boolean
+        sessionId:
+          type: integer
+          nullable: true
+        handsThisSession:
+          type: integer
+        winsThisSession:
+          type: integer
+        lossesThisSession:
+          type: integer
+        scrapThisSession:
+          type: integer
+        currentState:
+          type: string
+          nullable: true
+        username:
+          type: string
+          nullable: true
+        uptime:
+          type: integer
+      required:
+        - running
+        - connected
+        - handsThisSession
+        - winsThisSession
+        - lossesThisSession
+        - scrapThisSession
+        - uptime
+
+    Stats:
+      type: object
+      properties:
+        totalHands:
+          type: integer
+        wins:
+          type: integer
+        losses:
+          type: integer
+        pushes:
+          type: integer
+        blackjacks:
+          type: integer
+        winRate:
+          type: number
+        scrapNet:
+          type: integer
+        totalSessions:
+          type: integer
+        avgBet:
+          type: number
+      required:
+        - totalHands
+        - wins
+        - losses
+        - pushes
+        - blackjacks
+        - winRate
+        - scrapNet
+        - totalSessions
+        - avgBet
+
+    GameSession:
+      type: object
+      properties:
+        id:
+          type: integer
+        startedAt:
+          type: string
+        endedAt:
+          type: string
+          nullable: true
+        totalHands:
+          type: integer
+        wins:
+          type: integer
+        losses:
+          type: integer
+        pushes:
+          type: integer
+        blackjacks:
+          type: integer
+        scrapNet:
+          type: integer
+        status:
+          type: string
+      required:
+        - id
+        - startedAt
+        - totalHands
+        - wins
+        - losses
+        - pushes
+        - blackjacks
+        - scrapNet
+        - status
+
+    GameHand:
+      type: object
+      properties:
+        id:
+          type: integer
+        sessionId:
+          type: integer
+        bet:
+          type: integer
+        result:
+          type: string
+          nullable: true
+        playerCards:
+          type: array
+          items:
+            type: string
+          nullable: true
+        dealerCards:
+          type: array
+          items:
+            type: string
+          nullable: true
+        actions:
+          type: array
+          items:
+            type: string
+          nullable: true
+        scrapDelta:
+          type: integer
+          nullable: true
+        playedAt:
+          type: string
+      required:
+        - id
+        - sessionId
+        - bet
+        - playedAt
+
+    LogEntry:
+      type: object
+      properties:
+        timestamp:
+          type: string
+        level:
+          type: string
+          enum: [info, warn, error, debug]
+        message:
+          type: string
+        data:
+          nullable: true
+      required:
+        - timestamp
+        - level
+        - message
