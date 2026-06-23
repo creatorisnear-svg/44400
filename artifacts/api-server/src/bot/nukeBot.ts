@@ -590,10 +590,10 @@ class NukeBot {
 
     const keywords = settings.nukeKeywords.split(",").map((k) => k.trim()).filter(Boolean);
 
-    client.on("messageCreate", async (msg: Message) => {
+    const handlePotentialNuke = async (msg: any) => {
       if (!this.running) return;
-      if (msg.channelId !== settings.channelId) return;
-      if (settings.cloverId && msg.author.id !== settings.cloverId) return;
+      if ((msg.channelId ?? msg.channel_id) !== settings.channelId) return;
+      if (settings.cloverId && (msg.author?.id ?? msg.author_id) !== settings.cloverId) return;
 
       const embeds = msg.embeds ?? [];
       const content = msg.content ?? "";
@@ -604,7 +604,7 @@ class NukeBot {
       if (this.processingNukes.has(nukeKey)) return;
       this.processingNukes.add(nukeKey);
 
-      botLog.info(`🚨 NUKE DETECTED in <#${msg.channelId}>! Claiming with all accounts...`);
+      botLog.info(`🚨 NUKE DETECTED in <#${msg.channelId ?? msg.channel_id}>! Claiming with all accounts...`);
 
       let nukeEventId: number;
       try {
@@ -612,7 +612,7 @@ class NukeBot {
           .insert(nukeEventsTable)
           .values({
             messageId: msg.id,
-            channelId: msg.channelId,
+            channelId: msg.channelId ?? msg.channel_id,
             serverId: settings.serverId,
           })
           .returning();
@@ -621,14 +621,50 @@ class NukeBot {
         nukeEventId = 0;
       }
 
-      await this.claimNukeOnAllAccounts(msg, nukeEventId, settings);
+      try {
+        await this.claimNukeOnAllAccounts(msg, nukeEventId, settings);
+      } catch (err) {
+        botLog.error(`Unhandled error in claimNukeOnAllAccounts: ${(err as Error).message}`);
+      }
+    };
+
+    client.on("messageCreate", (msg: Message) => {
+      handlePotentialNuke(msg).catch((err) => {
+        botLog.error(`messageCreate handler error: ${(err as Error).message}`);
+      });
     });
 
-    client.on("disconnect", () => {
+    // Also catch nukes that appear as message edits (some bots update an existing message)
+    client.on("messageUpdate", (_old: any, msg: any) => {
+      if (!msg || !msg.id) return;
+      handlePotentialNuke(msg).catch((err) => {
+        botLog.error(`messageUpdate handler error: ${(err as Error).message}`);
+      });
+    });
+
+    // Also catch nukes via raw WebSocket events (covers interaction-based nuke messages)
+    client.on("raw", (packet: any) => {
+      if (!this.running) return;
+      if (packet.t !== "MESSAGE_UPDATE" && packet.t !== "INTERACTION_CREATE") return;
+      const d = packet.d;
+      if (!d) return;
+      if ((d.channel_id ?? d.channelId) !== settings.channelId) return;
+      handlePotentialNuke(d).catch(() => {});
+    });
+
+    const handleDisconnect = () => {
       if (!this.running || runtime.status === "disconnected") return;
       runtime.status = "error";
       botLog.warn(`[${account.label}] disconnected — reconnecting in 30s...`, account.id);
       this.scheduleReconnect(account, settings, 30_000);
+    };
+
+    client.on("disconnect", handleDisconnect);
+    client.on("shardDisconnect", handleDisconnect);
+    client.on("invalidated", () => {
+      botLog.error(`[${account.label}] session invalidated — reconnecting in 60s...`, account.id);
+      runtime.status = "error";
+      if (this.running) this.scheduleReconnect(account, settings, 60_000);
     });
   }
 
@@ -824,15 +860,26 @@ class NukeBot {
               return false;
             };
 
-            // Raw WebSocket fallback — fires even when Message construction fails
+            // Raw WebSocket fallback — fires even when Message construction fails.
+            // Catches MESSAGE_CREATE, MESSAGE_UPDATE, and ephemeral interaction responses.
+            const RAW_REPLY_TYPES = new Set([
+              "MESSAGE_CREATE",
+              "MESSAGE_UPDATE",
+              "INTERACTION_SUCCESS",
+              "INTERACTION_CREATE",
+              "INTERACTION_APPLICATION_COMMAND",
+            ]);
             function rawHandler(packet: any) {
-              if (packet.t !== "MESSAGE_CREATE" && packet.t !== "MESSAGE_UPDATE") return;
-              const d = packet.d;
+              if (!RAW_REPLY_TYPES.has(packet.t)) return;
+              const d = packet.d ?? packet;
               if (!d) return;
-              if (settings.cloverId && d.author?.id !== settings.cloverId) return;
+              // For interaction packets the author may be nested differently
+              const authorId = d.author?.id ?? d.member?.user?.id ?? d.user?.id;
+              if (settings.cloverId && authorId && authorId !== settings.cloverId) return;
+              const msgData = d.message ?? d;
               const text = [
-                d.content ?? "",
-                ...(d.embeds ?? []).map((e: any) =>
+                msgData.content ?? "",
+                ...(msgData.embeds ?? []).map((e: any) =>
                   `${e.title ?? ""} ${e.description ?? ""} ${(e.fields ?? []).map((f: any) => `${f.name} ${f.value}`).join(" ")}`
                 ),
               ].join(" ");
@@ -842,8 +889,7 @@ class NukeBot {
             // messageCreate fires when Message construction succeeds (simpler nukes)
             function replyHandler(m: any) {
               if (settings.cloverId && m.author.id !== settings.cloverId) return;
-              const mentioned = !m.mentions?.users?.size || m.mentions.users.has(client.user?.id ?? "");
-              if (!mentioned) return;
+              // Don't filter by mentions — KA0SBOT's ephemeral claim reply may not mention the user
               checkText(extractText(m));
             }
 
