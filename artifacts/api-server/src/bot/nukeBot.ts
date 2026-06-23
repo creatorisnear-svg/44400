@@ -706,47 +706,59 @@ class NukeBot {
       if (msg && msg.components && msg.components.length > 0) {
         const targetServer = String((settings as any).transferServer ?? 1);
 
-        outer: for (const row of msg.components) {
-          for (const component of (row as MessageActionRow).components) {
-            const compType = (component as any).type;
+        // Flatten all components from all action rows
+        const allComponents: any[] = (msg.components as any[]).flatMap(
+          (row: any) => row.components ?? [],
+        );
 
-            // SELECT_MENU = KA0SBOT "choose server" dropdown
-            if (compType === "SELECT_MENU" || compType === 3) {
-              try {
-                const selectMenu = component as any;
-                const options: any[] = selectMenu.options ?? [];
-                botLog.info(
-                  `[${runtime.label}] select menu: ${options.map((o: any) => `${o.label}(${o.value})`).join(", ")}`,
-                  runtime.accountId,
-                );
-                const targetOption = options.find((opt: any) =>
-                  String(opt.value) === targetServer ||
-                  opt.value?.toLowerCase().includes(targetServer) ||
-                  opt.label?.toLowerCase().includes(`server ${targetServer}`)
-                ) ?? options[0];
+        // Log what we found for debugging
+        botLog.info(
+          `[${runtime.label}] components: ${allComponents.map((c: any) => `type=${c.type} customId=${c.customId} label=${c.label ?? "-"} disabled=${c.disabled}`).join(" | ")}`,
+          runtime.accountId,
+        );
 
-                if (targetOption) {
-                  await selectMenu.select([targetOption.value]);
-                  interactionSent = true;
-                  botLog.info(`[${runtime.label}] ✓ selected "${targetOption.label}"`, runtime.accountId);
-                } else {
-                  botLog.warn(`[${runtime.label}] no option for server ${targetServer}`, runtime.accountId);
-                }
-              } catch (selErr) {
-                botLog.warn(`[${runtime.label}] select error: ${(selErr as Error).message}`, runtime.accountId);
-              }
-              break outer;
+        // Try select menu first (KA0SBOT "choose server" dropdown)
+        const SELECT_TYPES = ["SELECT_MENU", "STRING_SELECT", "USER_SELECT", "ROLE_SELECT", "MENTIONABLE_SELECT", "CHANNEL_SELECT"];
+        const selectComp = allComponents.find(
+          (c: any) => (SELECT_TYPES.includes(c.type) || c.type === 3) && !c.disabled,
+        );
+
+        if (selectComp) {
+          try {
+            const options: any[] = selectComp.options ?? [];
+            botLog.info(
+              `[${runtime.label}] select menu options: ${options.map((o: any) => `${o.label}(${o.value})`).join(", ")}`,
+              runtime.accountId,
+            );
+            const targetOption = options.find((opt: any) =>
+              String(opt.value) === targetServer ||
+              opt.value?.toLowerCase().includes(targetServer) ||
+              opt.label?.toLowerCase().includes(`server ${targetServer}`)
+            ) ?? options[0];
+
+            if (targetOption) {
+              // Use Message.selectMenu(customId, [value]) — the correct selfbot-v13 API
+              await msg.selectMenu(selectComp.customId, [targetOption.value]);
+              interactionSent = true;
+              botLog.info(`[${runtime.label}] ✓ selected "${targetOption.label}"`, runtime.accountId);
+            } else {
+              botLog.warn(`[${runtime.label}] no option for server ${targetServer}`, runtime.accountId);
             }
-
-            // BUTTON fallback
-            if (!interactionSent && (compType === "BUTTON" || compType === 2)) {
-              try {
-                await (component as MessageButton).click();
-                interactionSent = true;
-                botLog.info(`[${runtime.label}] ✓ clicked button`, runtime.accountId);
-              } catch (btnErr) {
-                botLog.warn(`[${runtime.label}] button error: ${(btnErr as Error).message}`, runtime.accountId);
-              }
+          } catch (selErr) {
+            botLog.warn(`[${runtime.label}] select error: ${(selErr as Error).message}`, runtime.accountId);
+          }
+        } else {
+          // Fallback: click first non-disabled button using Message.clickButton(customId)
+          const buttonComp = allComponents.find(
+            (c: any) => (c.type === "BUTTON" || c.type === 2) && !c.disabled && c.customId,
+          );
+          if (buttonComp) {
+            try {
+              await msg.clickButton(buttonComp.customId);
+              interactionSent = true;
+              botLog.info(`[${runtime.label}] ✓ clicked button "${buttonComp.label ?? buttonComp.customId}"`, runtime.accountId);
+            } catch (btnErr) {
+              botLog.warn(`[${runtime.label}] button error: ${(btnErr as Error).message}`, runtime.accountId);
             }
           }
         }
