@@ -535,7 +535,7 @@ export default function Dashboard() {
 
           <TabsContent value="transfer">
             <div className="max-w-md">
-              <TransferPanel />
+              <TransferPanel fillOrder={status?.fillOrder ?? null} />
             </div>
           </TabsContent>
 

@@ -1,0 +1,73 @@
+Instance created. Preparing to start...
+Application exited with code 1. This usually indicates an application failure. Check that the command used to launch your application is correct.
+Instance is starting... Waiting for health checks to pass.
+/app/node_modules/.pnpm/path-to-regexp@8.4.2/node_modules/path-to-regexp/src/index.ts:218
+          throw new PathError(`Missing parameter name at index ${index}`, str);
+                ^
+
+
+PathError [TypeError]: Missing parameter name at index 1: *; visit https://git.new/pathToRegexpError for info
+    at consumeUntil (/app/node_modules/.pnpm/path-to-regexp@8.4.2/node_modules/path-to-regexp/src/index.ts:218:17)
+    at parse (/app/node_modules/.pnpm/path-to-regexp@8.4.2/node_modules/path-to-regexp/src/index.ts:262:24)
+    at process (/app/node_modules/.pnpm/path-to-regexp@8.4.2/node_modules/path-to-regexp/src/index.ts:466:52)
+    at pathToRegexp (/app/node_modules/.pnpm/path-to-regexp@8.4.2/node_modules/path-to-regexp/src/index.ts:478:3)
+    at Object.match (/app/node_modules/.pnpm/path-to-regexp@8.4.2/node_modules/path-to-regexp/src/index.ts:416:28)
+    at matcher (/app/node_modules/.pnpm/router@2.2.0/node_modules/router/lib/layer.js:86:23)
+    at new Layer (/app/node_modules/.pnpm/router@2.2.0/node_modules/router/lib/layer.js:93:62)
+    at Function.route (/app/node_modules/.pnpm/router@2.2.0/node_modules/router/index.js:428:17)
+    at Function.route (/app/node_modules/.pnpm/express@5.2.1/node_modules/express/lib/application.js:257:22)
+    at Function.app2.<computed> (/app/node_modules/.pnpm/express@5.2.1/node_modules/express/lib/application.js:478:22) {
+  originalPath: '*'
+}
+
+Node.js v20.20.2
+Application exited with code 1. This usually indicates an application failure. Check that the command used to launch your application is correct.
+/app/node_modules/.pnpm/path-to-regexp@8.4.2/node_modules/path-to-regexp/src/index.ts:218
+          throw new PathError(`Missing parameter name at index ${index}`, str);
+                ^
+
+
+PathError [TypeError]: Missing parameter name at index 1: *; visit https://git.new/pathToRegexpError for info
+    at consumeUntil (/app/node_modules/.pnpm/path-to-regexp@8.4.2/node_modules/path-to-regexp/src/index.ts:218:17)
+    at parse (/app/node_modules/.pnpm/path-to-regexp@8.4.2/node_modules/path-to-regexp/src/index.ts:262:24)
+    at process (/app/node_modules/.pnpm/path-to-regexp@8.4.2/node_modules/path-to-regexp/src/index.ts:466:52)
+    at pathToRegexp (/app/node_modules/.pnpm/path-to-regexp@8.4.2/node_modules/path-to-regexp/src/index.ts:478:3)
+    at Object.match (/app/node_modules/.pnpm/path-to-regexp@8.4.2/node_modules/path-to-regexp/src/index.ts:416:28)
+    at matcher (/app/node_modules/.pnpm/router@2.2.0/node_modules/router/lib/layer.js:86:23)
+    at new Layer (/app/node_modules/.pnpm/router@2.2.0/node_modules/router/lib/layer.js:93:62)
+    at Function.route (/app/node_modules/.pnpm/router@2.2.0/node_modules/router/index.js:428:17)
+    at Function.route (/app/node_modules/.pnpm/express@5.2.1/node_modules/express/lib/application.js:257:22)
+    at Function.app2.<computed> (/app/node_modules/.pnpm/express@5.2.1/node_modules/express/lib/application.js:478:22) {
+  originalPath: '*'
+}
+
+Node.js v20.20.2
+Instance stopped.
+Instance created. Preparing to start...
+Starting download for registry01.prod.koyeb.com/k-5e2e38aa-d94e-499c-add9-041cfef81c4a/11d4d86e-35dc-4a78-b4b9-775d9ab757df:3f4a341a-d857-4eaa-9146-0b8f36a672d7
+Download progress: 100% |[32m++++++++[0m| (16.4 MiB/s)
+Download complete for registry01.prod.koyeb.com/k-5e2e38aa-d94e-499c-add9-041cfef81c4a/11d4d86e-35dc-4a78-b4b9-775d9ab757df:3f4a341a-d857-4eaa-9146-0b8f36a672d7
+Instance is starting... Waiting for health checks to pass.
+Application exited with code 1. This usually indicates an application failure. Check that the command used to launch your application is correct.
+/app/node_modules/.pnpm/path-to-regexp@8.4.2/node_modules/path-to-regexp/src/index.ts:218
+          throw new PathError(`Missing parameter name at index ${index}`, str);
+                ^
+
+
+PathError [TypeError]: Missing parameter name at index 1: *; visit https://git.new/pathToRegexpError for info
+    at consumeUntil (/app/node_modules/.pnpm/path-to-regexp@8.4.2/node_modules/path-to-regexp/src/index.ts:218:17)
+    at parse (/app/node_modules/.pnpm/path-to-regexp@8.4.2/node_modules/path-to-regexp/src/index.ts:262:24)
+    at process (/app/node_modules/.pnpm/path-to-regexp@8.4.2/node_modules/path-to-regexp/src/index.ts:466:52)
+    at pathToRegexp (/app/node_modules/.pnpm/path-to-regexp@8.4.2/node_modules/path-to-regexp/src/index.ts:478:3)
+    at Object.match (/app/node_modules/.pnpm/path-to-regexp@8.4.2/node_modules/path-to-regexp/src/index.ts:416:28)
+    at matcher (/app/node_modules/.pnpm/router@2.2.0/node_modules/router/lib/layer.js:86:23)
+    at new Layer (/app/node_modules/.pnpm/router@2.2.0/node_modules/router/lib/layer.js:93:62)
+    at Function.route (/app/node_modules/.pnpm/router@2.2.0/node_modules/router/index.js:428:17)
+    at Function.route (/app/node_modules/.pnpm/express@5.2.1/node_modules/express/lib/application.js:257:22)
+    at Function.app2.<computed> (/app/node_modules/.pnpm/express@5.2.1/node_modules/express/lib/application.js:478:22) {
+  originalPath: '*'
+}
+
+Node.js v20.20.2
+Application exited with code 1. This usually indicates an application failure. Check that the command used to launch your application is correct.
+Instance stopped.

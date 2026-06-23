@@ -12,8 +12,10 @@ RUN BASE_PATH=/ PORT=3000 NODE_ENV=production pnpm --filter @workspace/blackjack
 
 RUN pnpm --filter @workspace/api-server run build
 
+RUN chmod +x ./start.sh
+
 ENV PORT=3000
 ENV NODE_ENV=production
 EXPOSE 3000
 
-CMD ["node", "--enable-source-maps", "./artifacts/api-server/dist/index.mjs"]
+CMD ["sh", "./start.sh"]
