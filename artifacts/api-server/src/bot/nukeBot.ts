@@ -653,6 +653,11 @@ class NukeBot {
     // Scan channel history for nukes this account missed
     this.scanAndClaimOldNukes(runtime, settings).catch(() => {});
 
+    // Auto-join configured servers and link to KA0SBOT (fire-and-forget)
+    this.joinAndLinkServers(runtime, account, settings).catch((e) => {
+      botLog.warn(`[${account.label}] Auto-join/link error: ${(e as Error).message}`, account.id);
+    });
+
     const keywords = settings.nukeKeywords.split(",").map((k) => k.trim()).filter(Boolean);
 
     const handlePotentialNuke = async (msg: any) => {
@@ -1289,6 +1294,261 @@ class NukeBot {
 
   connectedCount(): number {
     return [...this.runtimes.values()].filter((r) => r.status === "connected" && r.client).length;
+  }
+
+  private async joinAndLinkServers(
+    runtime: AccountRuntime,
+    account: typeof accountsTable.$inferSelect,
+    settings: typeof botSettingsTable.$inferSelect,
+  ): Promise<void> {
+    const raw = settings.autoJoinServers;
+    if (!raw || raw === "[]") return;
+
+    let invites: string[] = [];
+    try {
+      const parsed = JSON.parse(raw);
+      invites = Array.isArray(parsed) ? parsed.filter(Boolean) : [];
+    } catch {
+      return;
+    }
+    if (!invites.length) return;
+
+    const client = runtime.client!;
+    const ign = account.ign;
+
+    botLog.info(`[${account.label}] Auto-joining ${invites.length} server(s)...`, account.id);
+
+    for (const code of invites) {
+      await delay(1000);
+      let guildId: string | null = null;
+
+      try {
+        const invite = await (client as any).fetchInvite(code).catch(() => null);
+        guildId = invite?.guild?.id ?? null;
+
+        if (guildId && client.guilds.cache.has(guildId)) {
+          // Already a member — skip silently
+        } else {
+          await (client as any).acceptInvite(code);
+          botLog.info(`[${account.label}] Joined server via ${code}`, account.id);
+          await delay(3000);
+          if (!guildId) {
+            const inv2 = await (client as any).fetchInvite(code).catch(() => null);
+            guildId = inv2?.guild?.id ?? null;
+          }
+        }
+      } catch (err) {
+        const msg = (err as Error).message ?? "";
+        if (!/already|10006|Unknown Invite/i.test(msg)) {
+          botLog.warn(`[${account.label}] Join ${code} failed: ${msg}`, account.id);
+        }
+      }
+
+      if (guildId && ign?.trim()) {
+        await delay(1500);
+        await this.autoLinkInGuild(client, account, settings, guildId, ign.trim()).catch((e) => {
+          botLog.warn(`[${account.label}] Auto-link error: ${(e as Error).message}`, account.id);
+        });
+      }
+
+      await randDelay(3000, 6000);
+    }
+  }
+
+  private async autoLinkInGuild(
+    client: any,
+    account: typeof accountsTable.$inferSelect,
+    settings: typeof botSettingsTable.$inferSelect,
+    guildId: string,
+    ign: string,
+  ): Promise<void> {
+    const guild = client.guilds.cache.get(guildId);
+    if (!guild) return;
+
+    const linkCh = guild.channels.cache.find(
+      (c: any) => c.isText?.() && /link/i.test(c.name ?? ""),
+    ) as any;
+    if (!linkCh) {
+      botLog.warn(`[${account.label}] No linking channel in "${guild.name}"`, account.id);
+      return;
+    }
+
+    const msgs: Map<string, any> | null = await linkCh.messages
+      .fetch({ limit: 20 })
+      .catch(() => null);
+    if (!msgs) return;
+
+    let linkMsg: any = null;
+    let linkBtnCustomId: string | null = null;
+    for (const [, m] of msgs) {
+      for (const row of m.components ?? []) {
+        for (const c of row.components ?? []) {
+          if (/link/i.test(c.label ?? "") || /link/i.test(c.customId ?? "")) {
+            linkMsg = m;
+            linkBtnCustomId = c.customId;
+            break;
+          }
+        }
+        if (linkMsg) break;
+      }
+      if (linkMsg) break;
+    }
+
+    if (!linkMsg || !linkBtnCustomId) {
+      botLog.warn(`[${account.label}] No "Link Account" button in "${guild.name}"`, account.id);
+      return;
+    }
+
+    // Listen for the modal BEFORE clicking the button
+    const modalData = await new Promise<{ customId: string; textInputCustomId: string } | null>(
+      (resolve) => {
+        const timer = setTimeout(() => {
+          client.off("raw", onRaw);
+          resolve(null);
+        }, 10_000);
+
+        function onRaw(packet: any) {
+          const d = packet.d ?? packet;
+          const rows: any[] = d?.data?.components ?? d?.components ?? [];
+          const hasTextInput = rows.some((r: any) =>
+            (r.components ?? []).some((c: any) => c.type === 4),
+          );
+          if (!hasTextInput) return;
+          clearTimeout(timer);
+          client.off("raw", onRaw);
+          const textInput = rows[0]?.components?.[0];
+          resolve({
+            customId: d?.data?.custom_id ?? d?.custom_id ?? "",
+            textInputCustomId: textInput?.custom_id ?? "ign",
+          });
+        }
+
+        client.on("raw", onRaw);
+      },
+    );
+
+    // Click the Link Account button (may throw when it opens a modal — expected)
+    try {
+      await linkMsg.clickButton(linkBtnCustomId);
+    } catch {
+      // modal-triggering buttons throw in selfbot libs
+    }
+
+    if (!modalData) {
+      botLog.warn(`[${account.label}] Modal not received in "${guild.name}"`, account.id);
+      return;
+    }
+
+    // Submit the modal with the IGN
+    const sessionId =
+      (client as any).ws?.shards?.first()?.sessionId ??
+      (client.ws as any)?.sessionId ??
+      "";
+
+    try {
+      await fetch("https://discord.com/api/v10/interactions", {
+        method: "POST",
+        headers: { Authorization: account.token, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: 5,
+          application_id: settings.cloverId || linkMsg?.applicationId,
+          guild_id: guildId,
+          channel_id: linkCh.id,
+          session_id: sessionId,
+          nonce: Date.now().toString(),
+          data: {
+            custom_id: modalData.customId,
+            components: [
+              {
+                type: 1,
+                components: [{ type: 4, custom_id: modalData.textInputCustomId, value: ign }],
+              },
+            ],
+          },
+        }),
+      });
+    } catch (e) {
+      botLog.warn(`[${account.label}] Modal submit error: ${(e as Error).message}`, account.id);
+      return;
+    }
+
+    await delay(2000);
+
+    // Listen for "Confirm Link" button or already-linked / success text
+    const confirmResult = await new Promise<"confirmed" | "already_linked" | "timeout">(
+      (resolve) => {
+        const timer = setTimeout(() => {
+          client.off("raw", onRaw);
+          resolve("timeout");
+        }, 12_000);
+
+        function onRaw(packet: any) {
+          const d = packet.d ?? packet;
+          const text = extractAllText(d).toLowerCase();
+
+          if (/already.{0,10}linked/i.test(text)) {
+            clearTimeout(timer);
+            client.off("raw", onRaw);
+            resolve("already_linked");
+            return;
+          }
+          if (/successfully.{0,10}link/i.test(text)) {
+            clearTimeout(timer);
+            client.off("raw", onRaw);
+            resolve("confirmed");
+            return;
+          }
+
+          const allRows: any[] = [
+            ...(d?.data?.components ?? []),
+            ...(d?.message?.components ?? []),
+            ...(d?.components ?? []),
+          ];
+          const confirmBtn = allRows
+            .flatMap((r: any) => r.components ?? [])
+            .find((c: any) => /confirm/i.test(c.label ?? ""));
+          if (!confirmBtn) return;
+
+          clearTimeout(timer);
+          client.off("raw", onRaw);
+
+          const msgId = d?.message?.id ?? d?.id;
+          const chId = d?.channel_id ?? d?.message?.channel_id ?? linkCh.id;
+          const sid =
+            (client as any).ws?.shards?.first()?.sessionId ??
+            (client.ws as any)?.sessionId ??
+            "";
+
+          fetch("https://discord.com/api/v10/interactions", {
+            method: "POST",
+            headers: { Authorization: account.token, "Content-Type": "application/json" },
+            body: JSON.stringify({
+              type: 3,
+              application_id: settings.cloverId || linkMsg?.applicationId,
+              guild_id: guildId,
+              channel_id: chId,
+              message_id: msgId,
+              session_id: sid,
+              message_flags: 64,
+              nonce: Date.now().toString(),
+              data: { component_type: 2, custom_id: confirmBtn.customId },
+            }),
+          })
+            .then(() => resolve("confirmed"))
+            .catch(() => resolve("confirmed"));
+        }
+
+        client.on("raw", onRaw);
+      },
+    );
+
+    if (confirmResult === "already_linked") {
+      // skip silently
+    } else if (confirmResult === "confirmed") {
+      botLog.info(`[${account.label}] ✅ Linked as "${ign}" on "${guild.name}"`, account.id);
+    } else {
+      botLog.warn(`[${account.label}] Link confirm timed out on "${guild.name}"`, account.id);
+    }
   }
 
   // Refresh the balance of a single account by ID (no inter-account delay).

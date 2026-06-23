@@ -49,7 +49,7 @@ router.get("/accounts", async (_req, res) => {
 });
 
 router.post("/accounts", async (req, res) => {
-  const { label, token, enabled, username } = req.body;
+  const { label, token, enabled, username, ign } = req.body;
   if (!token || typeof token !== "string" || !token.trim()) {
     return res.status(400).json({ error: "token is required" });
   }
@@ -61,6 +61,7 @@ router.post("/accounts", async (req, res) => {
       enabled: enabled !== false,
       manual: true,
       ...(username ? { username: username.trim() } : {}),
+      ...(ign ? { ign: ign.trim() } : {}),
     })
     .returning();
 
@@ -78,10 +79,15 @@ router.delete("/accounts/:id", async (req, res) => {
 
 router.put("/accounts/:id", async (req, res) => {
   const id = Number(req.params.id);
-  const { label, token, enabled } = req.body;
+  const { label, token, enabled, ign } = req.body;
+  const updateData: Record<string, any> = { updatedAt: new Date() };
+  if (label !== undefined) updateData.label = label;
+  if (token !== undefined) updateData.token = token;
+  if (enabled !== undefined) updateData.enabled = enabled;
+  if (ign !== undefined) updateData.ign = ign === "" ? null : ign;
   const [updated] = await db
     .update(accountsTable)
-    .set({ label, token, enabled, updatedAt: new Date() })
+    .set(updateData)
     .where(eq(accountsTable.id, id))
     .returning();
   return res.json(updated);

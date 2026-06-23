@@ -23,6 +23,7 @@ interface BotSettings {
   autoTransferEnabled: boolean;
   autoTransferRecipient: string;
   autoTransferIntervalMin: number;
+  autoJoinServers: string;
   enabled: boolean;
   humanize: boolean;
   skipRate: number;
@@ -33,6 +34,7 @@ interface Account {
   label: string;
   token: string;
   username: string | null;
+  ign: string | null;
   balance: number;
   totalClaimed: number;
   totalTransferred: number;
@@ -46,6 +48,23 @@ function AccountRow({ account, onToggle, onDelete }: {
   onToggle: (id: number, enabled: boolean) => void;
   onDelete: (id: number) => void;
 }) {
+  const qc = useQueryClient();
+  const [ign, setIgn] = useState(account.ign ?? "");
+
+  const ignMut = useMutation({
+    mutationFn: (val: string) =>
+      apiFetch(`/api/accounts/${account.id}`, {
+        method: "PUT",
+        body: JSON.stringify({ ign: val }),
+      }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["accounts"] }),
+  });
+
+  function saveIgn() {
+    const val = ign.trim();
+    if (val !== (account.ign ?? "")) ignMut.mutate(val);
+  }
+
   const statusColor: Record<string, string> = {
     connected: "bg-green-500",
     connecting: "bg-yellow-500 animate-pulse",
@@ -82,6 +101,21 @@ function AccountRow({ account, onToggle, onDelete }: {
         <span>Claimed: <span className="text-green-400">{account.totalClaimed.toLocaleString()}</span></span>
         <span>Sent: <span className="text-blue-400">{account.totalTransferred.toLocaleString()}</span></span>
       </div>
+      <div className="pl-5 flex items-center gap-2">
+        <span className="text-[10px] text-gray-600 uppercase tracking-wider shrink-0">IGN</span>
+        <input
+          className="flex-1 bg-gray-700/50 border border-gray-600/50 rounded px-2 py-0.5 text-xs text-white placeholder:text-gray-600 focus:outline-none focus:border-indigo-500/50 transition-colors"
+          placeholder="In-game username…"
+          value={ign}
+          onChange={(e) => setIgn(e.target.value)}
+          onBlur={saveIgn}
+          onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); }}
+        />
+        {ignMut.isPending && <span className="text-[10px] text-gray-600 shrink-0">saving…</span>}
+        {ignMut.isSuccess && !ignMut.isPending && (
+          <span className="text-[10px] text-green-600 shrink-0">✓</span>
+        )}
+      </div>
     </div>
   );
 }
@@ -89,6 +123,7 @@ function AccountRow({ account, onToggle, onDelete }: {
 function AddAccountForm({ onAdded }: { onAdded: () => void }) {
   const [label, setLabel] = useState("");
   const [token, setToken] = useState("");
+  const [ign, setIgn] = useState("");
   const [preview, setPreview] = useState<{ username: string; globalName: string | null; avatarUrl: string } | null>(null);
   const [checking, setChecking] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -101,10 +136,11 @@ function AddAccountForm({ onAdded }: { onAdded: () => void }) {
         label: label || preview?.globalName || preview?.username || "Account",
         token,
         username: preview?.username ?? undefined,
+        ...(ign.trim() ? { ign: ign.trim() } : {}),
       }),
     }),
     onSuccess: () => {
-      setLabel(""); setToken(""); setPreview(null); setErr(null);
+      setLabel(""); setToken(""); setPreview(null); setErr(null); setIgn("");
       onAdded();
     },
     onError: (e) => setErr((e as Error).message),
@@ -190,6 +226,13 @@ function AddAccountForm({ onAdded }: { onAdded: () => void }) {
         </div>
       )}
 
+      <Input
+        className="bg-gray-700 border-gray-600 text-white text-sm"
+        placeholder="In-game username (IGN) — for auto-linking"
+        value={ign}
+        onChange={(e) => setIgn(e.target.value)}
+      />
+
       <Button
         size="sm"
         className="w-full bg-green-700 hover:bg-green-600 text-white disabled:opacity-50"
@@ -221,10 +264,17 @@ export default function ConfigPanel() {
   });
 
   const [form, setForm] = useState<Partial<BotSettings>>({});
+  const [autoJoinText, setAutoJoinText] = useState("");
 
   useEffect(() => {
     if (settings && Object.keys(form).length === 0) {
       setForm(settings);
+      try {
+        const parsed = JSON.parse(settings.autoJoinServers ?? "[]");
+        setAutoJoinText(Array.isArray(parsed) ? parsed.join("\n") : "");
+      } catch {
+        setAutoJoinText("");
+      }
     }
   }, [settings]);
 
@@ -261,7 +311,14 @@ export default function ConfigPanel() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    saveSettingsMut.mutate(form);
+    const invites = autoJoinText
+      .split(/[\n,]+/)
+      .map((s) => {
+        const m = s.trim().match(/(?:discord\.gg\/|discord\.com\/invite\/)?([A-Za-z0-9-]+)$/);
+        return m ? m[1] : "";
+      })
+      .filter(Boolean);
+    saveSettingsMut.mutate({ ...form, autoJoinServers: JSON.stringify(invites) });
   };
 
   const accounts: Account[] = accountsData?.accounts ?? [];
@@ -506,6 +563,27 @@ export default function ConfigPanel() {
             </CardContent>
           </Card>
         </div>
+
+        {/* Auto-Join Servers card — full width */}
+        <Card className="bg-gray-900 border-gray-700 mt-4">
+          <CardHeader>
+            <CardTitle className="text-white text-base">Auto-Join Servers</CardTitle>
+            <CardDescription className="text-gray-500 text-xs">
+              When an account connects, it will auto-join these servers and link its IGN to KA0SBOT. One invite code or URL per line.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <textarea
+              className="w-full h-28 bg-gray-800 border border-gray-600 text-white text-sm rounded-md px-3 py-2 resize-none focus:outline-none focus:ring-1 focus:ring-indigo-500 font-mono placeholder:text-gray-600"
+              placeholder={"discord.gg/example\nhttps://discord.gg/another\nInviteCode123"}
+              value={autoJoinText}
+              onChange={(e) => setAutoJoinText(e.target.value)}
+            />
+            <p className="text-xs text-gray-600 mt-1">
+              Accepts full URLs (discord.gg/…) or raw invite codes. Accounts must have an IGN set to auto-link.
+            </p>
+          </CardContent>
+        </Card>
 
         <div className="mt-4 flex items-center gap-3">
           <Button
