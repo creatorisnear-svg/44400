@@ -1,0 +1,8 @@
+**/node_modules
+.git
+.local
+attached_assets
+artifacts/blackjack-bot/dist
+artifacts/api-server/dist
+artifacts/mockup-sandbox
+.agents
