@@ -49,14 +49,24 @@ router.get("/accounts", async (_req, res) => {
 });
 
 router.post("/accounts", async (req, res) => {
-  const { label, token, enabled } = req.body;
+  const { label, token, enabled, username } = req.body;
   if (!token || typeof token !== "string" || !token.trim()) {
     return res.status(400).json({ error: "token is required" });
   }
   const [created] = await db
     .insert(accountsTable)
-    .values({ label: (label || "Account").trim(), token: token.trim(), enabled: enabled !== false, manual: true })
+    .values({
+      label: (label || "Account").trim(),
+      token: token.trim(),
+      enabled: enabled !== false,
+      manual: true,
+      ...(username ? { username: username.trim() } : {}),
+    })
     .returning();
+
+  // If the bot is already running, hot-connect this account immediately
+  nukeBot.hotConnectAccount(created.id).catch(() => {});
+
   return res.json(created);
 });
 

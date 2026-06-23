@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -89,14 +89,19 @@ function AccountRow({ account, onToggle, onDelete }: {
 function AddAccountForm({ onAdded }: { onAdded: () => void }) {
   const [label, setLabel] = useState("");
   const [token, setToken] = useState("");
-  const [preview, setPreview] = useState<{ username: string; avatarUrl: string } | null>(null);
+  const [preview, setPreview] = useState<{ username: string; globalName: string | null; avatarUrl: string } | null>(null);
   const [checking, setChecking] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const addMut = useMutation({
     mutationFn: () => apiFetch("/api/accounts", {
       method: "POST",
-      body: JSON.stringify({ label: label || preview?.username || "Account", token }),
+      body: JSON.stringify({
+        label: label || preview?.globalName || preview?.username || "Account",
+        token,
+        username: preview?.username ?? undefined,
+      }),
     }),
     onSuccess: () => {
       setLabel(""); setToken(""); setPreview(null); setErr(null);
@@ -105,20 +110,30 @@ function AddAccountForm({ onAdded }: { onAdded: () => void }) {
     onError: (e) => setErr((e as Error).message),
   });
 
-  async function checkToken() {
-    if (!token.trim()) return;
+  async function checkToken(t: string) {
+    if (!t.trim()) return;
     setChecking(true); setPreview(null); setErr(null);
     try {
       const data = await apiFetch("/api/accounts/validate-token", {
         method: "POST",
-        body: JSON.stringify({ token }),
+        body: JSON.stringify({ token: t }),
       });
       setPreview(data);
-      if (!label) setLabel(data.globalName ?? data.username);
+      setLabel((prev) => prev || data.globalName || data.username || "");
     } catch (e) {
       setErr((e as Error).message);
     } finally {
       setChecking(false);
+    }
+  }
+
+  function handleTokenChange(value: string) {
+    setToken(value);
+    setPreview(null);
+    setErr(null);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    if (value.trim().length > 20) {
+      debounceRef.current = setTimeout(() => checkToken(value), 800);
     }
   }
 
@@ -128,24 +143,24 @@ function AddAccountForm({ onAdded }: { onAdded: () => void }) {
       <div className="space-y-2">
         <Input
           className="bg-gray-700 border-gray-600 text-white text-sm"
-          placeholder="Label (e.g. Main)"
+          placeholder="Label (auto-filled after token check)"
           value={label}
           onChange={(e) => setLabel(e.target.value)}
         />
         <div className="flex gap-2">
           <Input
             className="bg-gray-700 border-gray-600 text-white font-mono text-xs flex-1"
-            placeholder="Discord token (mfa.xxxxx)"
+            placeholder="Paste Discord token (mfa.xxxxx or OTY…)"
             type="password"
             value={token}
-            onChange={(e) => { setToken(e.target.value); setPreview(null); setErr(null); }}
-            onBlur={checkToken}
+            onChange={(e) => handleTokenChange(e.target.value)}
+            onBlur={() => { if (!preview && !checking && token.trim()) checkToken(token); }}
           />
           <Button
             size="sm"
             variant="outline"
             className="border-gray-600 text-gray-300 shrink-0"
-            onClick={checkToken}
+            onClick={() => checkToken(token)}
             disabled={!token.trim() || checking}
           >
             {checking ? <RefreshCw className="w-3 h-3 animate-spin" /> : "Verify"}
@@ -153,22 +168,37 @@ function AddAccountForm({ onAdded }: { onAdded: () => void }) {
         </div>
       </div>
 
-      {preview && (
-        <div className="flex items-center gap-2 p-2 bg-green-950 border border-green-800 rounded-lg">
-          <img src={preview.avatarUrl} className="w-7 h-7 rounded-full" />
-          <span className="text-green-300 text-sm font-medium">✓ {preview.username}</span>
+      {checking && (
+        <div className="flex items-center gap-2 text-yellow-400 text-xs">
+          <RefreshCw className="w-3 h-3 animate-spin" />
+          Checking token with Discord…
         </div>
       )}
-      {err && <p className="text-red-400 text-xs">{err}</p>}
+      {preview && !checking && (
+        <div className="flex items-center gap-2 p-2 bg-green-950 border border-green-800 rounded-lg">
+          <img src={preview.avatarUrl} className="w-7 h-7 rounded-full" alt="" />
+          <div>
+            <p className="text-green-300 text-sm font-medium">✓ {preview.globalName ?? preview.username}</p>
+            <p className="text-green-600 text-xs">@{preview.username} — token valid</p>
+          </div>
+        </div>
+      )}
+      {err && (
+        <div className="flex items-center gap-2 p-2 bg-red-950 border border-red-800 rounded-lg">
+          <XCircle className="w-3.5 h-3.5 text-red-400 shrink-0" />
+          <p className="text-red-400 text-xs">{err}</p>
+        </div>
+      )}
 
       <Button
         size="sm"
-        className="w-full bg-green-700 hover:bg-green-600 text-white"
+        className="w-full bg-green-700 hover:bg-green-600 text-white disabled:opacity-50"
         onClick={() => addMut.mutate()}
-        disabled={!token.trim() || addMut.isPending}
+        disabled={!token.trim() || !preview || addMut.isPending}
+        title={!preview ? "Verify token first" : undefined}
       >
         <Plus className="w-3.5 h-3.5 mr-1.5" />
-        {addMut.isPending ? "Adding..." : "Add Account"}
+        {addMut.isPending ? "Adding…" : preview ? `Add @${preview.username}` : "Verify token first"}
       </Button>
     </div>
   );

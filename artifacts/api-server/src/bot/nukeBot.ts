@@ -234,8 +234,14 @@ class NukeBot {
         const channel = runtime.client.channels.cache.get(transferChannelId);
         if (!channel || !(channel as any).isText()) throw new Error(`Channel ${transferChannelId} not accessible`);
 
-        const cmd = `${settings.giveCommand} recipient:@${fo.toUsername} amount: ${step.amount} server: ${server}`;
-        await (channel as any).send(cmd);
+        const isSlash = settings.giveCommand.trim().startsWith("/");
+        const slashName = settings.giveCommand.trim().replace(/^\//, "");
+        if (isSlash && settings.cloverId) {
+          await (channel as any).sendSlash(settings.cloverId, slashName, `@${fo.toUsername}`, String(step.amount), String(server));
+        } else {
+          const cmd = `${settings.giveCommand} recipient:@${fo.toUsername} amount: ${step.amount} server: ${server}`;
+          await (channel as any).send(cmd);
+        }
 
         step.status = "sent";
         step.sentAt = Date.now();
@@ -1107,6 +1113,18 @@ class NukeBot {
     );
   }
 
+  // Hot-connect a single account while the bot is already running (e.g. added via UI).
+  async hotConnectAccount(accountId: number): Promise<void> {
+    if (!this.running) return; // bot not started; will be picked up on next start()
+    const [settings] = await db.select().from(botSettingsTable).limit(1);
+    if (!settings) throw new Error("Bot settings not configured.");
+    const [account] = await db.select().from(accountsTable).where(eq(accountsTable.id, accountId));
+    if (!account || !account.enabled) return;
+    if (this.runtimes.has(accountId)) return; // already connected
+    botLog.info(`[${account.label}] Hot-connecting new account...`, accountId);
+    await this.connectAccount(account, settings);
+  }
+
   async transferAll(
     toUsername: string,
     amount: number | null,
@@ -1130,6 +1148,11 @@ class NukeBot {
       `💸 Transferring from ${runtimesToUse.length} account(s) to ${toUsername}...`,
     );
 
+    // Use the dedicated transfer channel if set, falling back to the nuke channel
+    const transferChannelId = (settings as any).transferChannelId || settings.channelId;
+    const isSlashCommand = settings.giveCommand.trim().startsWith("/");
+    const slashName = settings.giveCommand.trim().replace(/^\//, "");
+
     const results = await Promise.all(
       runtimesToUse.map(async (runtime) => {
         let success = false;
@@ -1148,16 +1171,26 @@ class NukeBot {
             throw new Error(`No scrap to transfer (balance: ${dbAccount?.balance ?? 0})`);
           }
 
-          const channel = runtime.client!.channels.cache.get(settings.channelId);
+          const channel = runtime.client!.channels.cache.get(transferChannelId);
           if (!channel || !channel.isText()) {
-            throw new Error("Channel not accessible");
+            throw new Error(`Transfer channel ${transferChannelId} not accessible`);
           }
 
           const server = (settings as any).transferServer ?? 1;
-          const cmd = `${settings.giveCommand} recipient:@${toUsername} amount: ${sendAmount} server: ${server}`;
-          await (channel as any).send(cmd);
 
-          botLog.info(`[${runtime.label}] sent: ${cmd}`, runtime.accountId);
+          if (isSlashCommand && settings.cloverId) {
+            // Slash command — use sendSlash so Discord actually routes it as an interaction.
+            // KA0SBOT's /transfer options: recipient (user mention), amount (integer), server (integer)
+            botLog.info(`[${runtime.label}] sendSlash /${slashName} @${toUsername} ${sendAmount} server:${server}`, runtime.accountId);
+            await (channel as any).sendSlash(settings.cloverId, slashName, `@${toUsername}`, String(sendAmount), String(server));
+          } else {
+            // Prefix/text command fallback
+            const cmd = `${settings.giveCommand} recipient:@${toUsername} amount: ${sendAmount} server: ${server}`;
+            botLog.info(`[${runtime.label}] send text: ${cmd}`, runtime.accountId);
+            await (channel as any).send(cmd);
+          }
+
+          botLog.info(`[${runtime.label}] ✓ Transfer sent: ${sendAmount.toLocaleString()} → @${toUsername}`, runtime.accountId);
           success = true;
 
           await db
