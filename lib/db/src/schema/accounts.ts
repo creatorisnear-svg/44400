@@ -13,6 +13,7 @@ export const accountsTable = pgTable("accounts", {
   totalClaimed: integer("total_claimed").notNull().default(0),
   totalTransferred: integer("total_transferred").notNull().default(0),
   enabled: boolean("enabled").notNull().default(true),
+  manual: boolean("manual").notNull().default(false),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });

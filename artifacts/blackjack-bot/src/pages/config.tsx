@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { Save, AlertTriangle, RefreshCw, ShieldCheck, XCircle } from "lucide-react";
+import { Save, AlertTriangle, RefreshCw, ShieldCheck, XCircle, Plus, Trash2 } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 
 interface BotSettings {
@@ -39,9 +39,10 @@ interface Account {
   connectionStatus: string;
 }
 
-function AccountRow({ account, onToggle }: {
+function AccountRow({ account, onToggle, onDelete }: {
   account: Account;
   onToggle: (id: number, enabled: boolean) => void;
+  onDelete: (id: number) => void;
 }) {
   const statusColor: Record<string, string> = {
     connected: "bg-green-500",
@@ -54,7 +55,7 @@ function AccountRow({ account, onToggle }: {
     <div className="p-3 bg-gray-800 rounded-lg space-y-2">
       <div className="flex items-center gap-3">
         <span className={`w-2 h-2 rounded-full shrink-0 ${statusColor[account.connectionStatus] ?? "bg-gray-600"}`} />
-        <span className="text-sm font-medium text-white flex-1">
+        <span className="text-sm font-medium text-white flex-1 min-w-0 truncate">
           {account.label}
           {account.username && (
             <span className="text-gray-500 font-normal ml-2">@{account.username}</span>
@@ -64,12 +65,109 @@ function AccountRow({ account, onToggle }: {
           checked={account.enabled}
           onCheckedChange={(v) => onToggle(account.id, v)}
         />
+        <button
+          onClick={() => {
+            if (confirm(`Remove "${account.label}"? This cannot be undone.`)) onDelete(account.id);
+          }}
+          className="text-gray-600 hover:text-red-400 transition-colors ml-1"
+          title="Delete account"
+        >
+          <Trash2 className="w-3.5 h-3.5" />
+        </button>
       </div>
       <div className="flex gap-4 pl-5 text-xs text-gray-500">
         <span>Balance: <span className="text-yellow-400">{account.balance.toLocaleString()}</span></span>
         <span>Claimed: <span className="text-green-400">{account.totalClaimed.toLocaleString()}</span></span>
         <span>Sent: <span className="text-blue-400">{account.totalTransferred.toLocaleString()}</span></span>
       </div>
+    </div>
+  );
+}
+
+function AddAccountForm({ onAdded }: { onAdded: () => void }) {
+  const [label, setLabel] = useState("");
+  const [token, setToken] = useState("");
+  const [preview, setPreview] = useState<{ username: string; avatarUrl: string } | null>(null);
+  const [checking, setChecking] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  const addMut = useMutation({
+    mutationFn: () => apiFetch("/api/accounts", {
+      method: "POST",
+      body: JSON.stringify({ label: label || preview?.username || "Account", token }),
+    }),
+    onSuccess: () => {
+      setLabel(""); setToken(""); setPreview(null); setErr(null);
+      onAdded();
+    },
+    onError: (e) => setErr((e as Error).message),
+  });
+
+  async function checkToken() {
+    if (!token.trim()) return;
+    setChecking(true); setPreview(null); setErr(null);
+    try {
+      const data = await apiFetch("/api/accounts/validate-token", {
+        method: "POST",
+        body: JSON.stringify({ token }),
+      });
+      setPreview(data);
+      if (!label) setLabel(data.globalName ?? data.username);
+    } catch (e) {
+      setErr((e as Error).message);
+    } finally {
+      setChecking(false);
+    }
+  }
+
+  return (
+    <div className="mt-3 pt-3 border-t border-gray-700 space-y-3">
+      <p className="text-xs font-medium text-gray-400">Add Account</p>
+      <div className="space-y-2">
+        <Input
+          className="bg-gray-700 border-gray-600 text-white text-sm"
+          placeholder="Label (e.g. Main)"
+          value={label}
+          onChange={(e) => setLabel(e.target.value)}
+        />
+        <div className="flex gap-2">
+          <Input
+            className="bg-gray-700 border-gray-600 text-white font-mono text-xs flex-1"
+            placeholder="Discord token (mfa.xxxxx)"
+            type="password"
+            value={token}
+            onChange={(e) => { setToken(e.target.value); setPreview(null); setErr(null); }}
+            onBlur={checkToken}
+          />
+          <Button
+            size="sm"
+            variant="outline"
+            className="border-gray-600 text-gray-300 shrink-0"
+            onClick={checkToken}
+            disabled={!token.trim() || checking}
+          >
+            {checking ? <RefreshCw className="w-3 h-3 animate-spin" /> : "Verify"}
+          </Button>
+        </div>
+      </div>
+
+      {preview && (
+        <div className="flex items-center gap-2 p-2 bg-green-950 border border-green-800 rounded-lg">
+          <img src={preview.avatarUrl} className="w-7 h-7 rounded-full" />
+          <span className="text-green-300 text-sm font-medium">✓ {preview.username}</span>
+        </div>
+      )}
+      {err && <p className="text-red-400 text-xs">{err}</p>}
+
+      <Button
+        size="sm"
+        className="w-full bg-green-700 hover:bg-green-600 text-white"
+        onClick={() => addMut.mutate()}
+        disabled={!token.trim() || addMut.isPending}
+      >
+        <Plus className="w-3.5 h-3.5 mr-1.5" />
+        {addMut.isPending ? "Adding..." : "Add Account"}
+      </Button>
     </div>
   );
 }

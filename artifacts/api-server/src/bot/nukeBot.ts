@@ -313,7 +313,7 @@ class NukeBot {
     }
 
     for (const acc of existing) {
-      if (!envLabels.has(acc.label)) {
+      if (!envLabels.has(acc.label) && !(acc as any).manual) {
         await db.update(accountsTable)
           .set({ enabled: false, updatedAt: new Date() })
           .where(eq(accountsTable.id, acc.id));

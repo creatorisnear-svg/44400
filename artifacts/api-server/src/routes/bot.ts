@@ -50,11 +50,20 @@ router.get("/accounts", async (_req, res) => {
 
 router.post("/accounts", async (req, res) => {
   const { label, token, enabled } = req.body;
+  if (!token || typeof token !== "string" || !token.trim()) {
+    return res.status(400).json({ error: "token is required" });
+  }
   const [created] = await db
     .insert(accountsTable)
-    .values({ label: label ?? "Account", token, enabled: enabled !== false })
+    .values({ label: (label || "Account").trim(), token: token.trim(), enabled: enabled !== false, manual: true })
     .returning();
   return res.json(created);
+});
+
+router.delete("/accounts/:id", async (req, res) => {
+  const id = Number(req.params.id);
+  await db.delete(accountsTable).where(eq(accountsTable.id, id));
+  return res.json({ ok: true });
 });
 
 router.put("/accounts/:id", async (req, res) => {
