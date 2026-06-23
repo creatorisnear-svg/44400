@@ -201,6 +201,115 @@ function LogEntry({ log }: { log: any }) {
 const TAX_RATE = 0.20;
 const net = (gross: number) => Math.floor(gross * (1 - TAX_RATE));
 
+function LiveTransferBanner({ fillOrder, onCancel }: { fillOrder: any; onCancel: () => void }) {
+  if (!fillOrder) return null;
+
+  const isActive = !fillOrder.done;
+  const pct = fillOrder.totalRequested > 0
+    ? Math.min(100, Math.round((fillOrder.totalSent / fillOrder.totalRequested) * 100))
+    : 0;
+
+  const stepIcon = (status: string) => {
+    if (status === "sent")    return <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />;
+    if (status === "error")   return <XCircle      className="w-3.5 h-3.5 text-red-400 shrink-0" />;
+    if (status === "sending") return <Loader2      className="w-3.5 h-3.5 text-blue-400 shrink-0 animate-spin" />;
+    return <span className="w-3.5 h-3.5 rounded-full border border-gray-600 shrink-0 inline-block mt-0.5" />;
+  };
+
+  return (
+    <div className={`rounded-xl border p-4 space-y-3 ${
+      fillOrder.done
+        ? "border-emerald-700/40 bg-emerald-900/10"
+        : "border-blue-700/40 bg-blue-900/10"
+    }`}>
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <ArrowRightLeft className={`w-4 h-4 ${fillOrder.done ? "text-emerald-400" : "text-blue-400"}`} />
+          <span className="text-sm font-semibold text-white">
+            {fillOrder.done ? "Transfer Complete" : "Transfer In Progress"}
+          </span>
+          <span className="text-xs text-gray-400">→ @{fillOrder.toUsername}</span>
+        </div>
+        {isActive && (
+          <button
+            onClick={onCancel}
+            className="text-xs text-red-400 hover:text-red-300 border border-red-700/40 hover:border-red-500/60 px-2 py-0.5 rounded transition-colors"
+          >
+            Cancel
+          </button>
+        )}
+      </div>
+
+      {/* Progress bar + totals */}
+      <div className="space-y-1.5">
+        <div className="flex justify-between text-xs">
+          <span className="text-gray-400">
+            Sent: <span className="text-white font-mono">{fillOrder.totalSent.toLocaleString()}</span>
+            <span className="text-gray-600"> / {fillOrder.totalRequested.toLocaleString()}</span>
+          </span>
+          <span className="text-emerald-400 font-mono font-semibold">
+            +{net(fillOrder.totalSent).toLocaleString()} received
+          </span>
+        </div>
+        <div className="w-full h-1.5 bg-gray-700/60 rounded-full overflow-hidden">
+          <div
+            className={`h-full rounded-full transition-all duration-700 ${fillOrder.done ? "bg-emerald-500" : "bg-blue-500"}`}
+            style={{ width: `${pct}%` }}
+          />
+        </div>
+        <div className="text-[10px] text-gray-600 text-right">{pct}%</div>
+      </div>
+
+      {/* Per-account steps */}
+      <div className="space-y-1.5">
+        {(fillOrder.steps ?? []).map((step: any, i: number) => (
+          <div key={i} className={`flex items-start gap-2.5 px-3 py-2 rounded-lg text-xs ${
+            step.status === "sending" ? "bg-blue-900/20 border border-blue-700/30" :
+            step.status === "sent"    ? "bg-emerald-900/10 border border-emerald-700/20" :
+            step.status === "error"   ? "bg-red-900/20 border border-red-700/30" :
+            "bg-gray-900/30 border border-gray-700/20"
+          }`}>
+            {stepIcon(step.status)}
+            <div className="flex-1 min-w-0">
+              <div className="flex justify-between items-center">
+                <span className="text-gray-300 font-medium">{step.label}</span>
+                {step.status !== "pending" && (
+                  <div className="text-right shrink-0 ml-2">
+                    <span className="text-gray-400 font-mono">{step.amount.toLocaleString()}</span>
+                    {step.status === "sent" && (
+                      <span className="text-emerald-400 font-mono ml-1.5">(+{net(step.amount).toLocaleString()})</span>
+                    )}
+                  </div>
+                )}
+                {step.status === "pending" && (
+                  <span className="text-gray-600 text-[10px] ml-2">queued · {step.amount.toLocaleString()}</span>
+                )}
+              </div>
+              {step.status === "error" && (
+                <p className="text-red-400 text-[10px] mt-0.5 truncate">{step.error}</p>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Countdown to next send */}
+      {isActive && fillOrder.nextSendAt && (
+        <div className="text-xs text-center text-gray-500 pt-1 border-t border-gray-700/40">
+          Next send in <span className="text-yellow-400 font-mono font-semibold"><FillOrderCountdown target={fillOrder.nextSendAt} /></span>
+        </div>
+      )}
+
+      {fillOrder.done && (
+        <div className="text-xs text-center text-emerald-300 pt-1 border-t border-emerald-700/30">
+          ✅ Done — {fillOrder.totalSent.toLocaleString()} sent · {net(fillOrder.totalSent).toLocaleString()} received by @{fillOrder.toUsername}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function TransferPanel({ fillOrder }: { fillOrder: any }) {
   const qc = useQueryClient();
   const [toUsername, setToUsername] = useState("");
@@ -408,6 +517,11 @@ export default function Dashboard() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["bot-status"] }),
   });
 
+  const cancelFillMut = useMutation({
+    mutationFn: () => apiFetch("/api/transfer/fill/cancel", { method: "POST" }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["bot-status"] }),
+  });
+
   useEffect(() => {
     if (autoScroll && logRef.current) {
       logRef.current.scrollTop = logRef.current.scrollHeight;
@@ -510,13 +624,20 @@ export default function Dashboard() {
           />
         </div>
 
+        {/* Live fill-order status — visible from any tab */}
+        {status?.fillOrder && (
+          <LiveTransferBanner
+            fillOrder={status.fillOrder}
+            onCancel={() => cancelFillMut.mutate()}
+          />
+        )}
+
         {/* Tabs */}
         <Tabs defaultValue="logs" className="space-y-4">
           <TabsList className="bg-gray-900/60 border border-gray-700/60 rounded-xl p-1 h-auto flex-wrap gap-1">
             {[
               { value: "logs",     label: "Live Logs",  icon: Activity },
               { value: "accounts", label: "Accounts",   icon: Users },
-              { value: "transfer", label: "Transfer",   icon: ArrowRightLeft },
               { value: "history",  label: "Events",     icon: History },
             ].map(({ value, label, icon: Icon }) => (
               <TabsTrigger
@@ -528,6 +649,17 @@ export default function Dashboard() {
                 {label}
               </TabsTrigger>
             ))}
+            {/* Transfer tab — shows orange dot when a fill order is active */}
+            <TabsTrigger
+              value="transfer"
+              className="data-[state=active]:bg-gray-700 data-[state=active]:text-white text-gray-400 rounded-lg px-3 py-1.5 text-xs font-medium flex items-center gap-1.5 relative"
+            >
+              <ArrowRightLeft className="w-3.5 h-3.5" />
+              Transfer
+              {status?.fillOrder && !status.fillOrder.done && (
+                <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-blue-400 animate-pulse" />
+              )}
+            </TabsTrigger>
             <TabsTrigger value="config" className="data-[state=active]:bg-gray-700 data-[state=active]:text-white text-gray-400 rounded-lg px-3 py-1.5 text-xs font-medium">
               ⚙️ Config
             </TabsTrigger>
