@@ -1,9 +1,12 @@
+import { useState } from "react";
 import { Switch, Route, Router as WouterRouter } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/not-found";
 import Dashboard from "@/pages/dashboard";
+import Login from "@/pages/login";
+import { getToken } from "@/lib/api";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -21,6 +24,12 @@ function Router() {
 }
 
 function App() {
+  const [authed, setAuthed] = useState(() => !!getToken());
+
+  if (!authed) {
+    return <Login onAuth={() => setAuthed(true)} />;
+  }
+
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>

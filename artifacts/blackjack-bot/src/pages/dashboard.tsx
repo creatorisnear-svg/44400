@@ -26,16 +26,7 @@ import {
 import ConfigPanel from "./config";
 import EventsAndTransfers from "./sessions";
 
-const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
-
-async function apiFetch(path: string, opts?: RequestInit) {
-  const res = await fetch(`${BASE}${path}`, opts);
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({ error: res.statusText }));
-    throw new Error(err.error ?? res.statusText);
-  }
-  return res.json();
-}
+import { apiFetch } from "@/lib/api";
 
 function useStatus() {
   return useQuery({

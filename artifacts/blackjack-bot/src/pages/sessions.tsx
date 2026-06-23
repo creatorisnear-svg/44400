@@ -5,13 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { ChevronDown, ChevronUp, CheckCircle2, XCircle, Zap, ArrowRightLeft } from "lucide-react";
 
-const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
-
-async function apiFetch(path: string) {
-  const res = await fetch(`${BASE}${path}`);
-  if (!res.ok) throw new Error(res.statusText);
-  return res.json();
-}
+import { apiFetch } from "@/lib/api";
 
 function timeAgo(dateStr: string) {
   const diff = Date.now() - new Date(dateStr).getTime();

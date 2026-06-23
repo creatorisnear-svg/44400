@@ -100,8 +100,37 @@ class NukeBot {
     };
   }
 
+  private async syncEnvAccounts(): Promise<void> {
+    const raw = process.env.DISCORD_ACCOUNTS;
+    if (!raw) return;
+
+    const entries = raw.split(",").map((s) => s.trim()).filter(Boolean);
+    const parsed: { label: string; token: string }[] = [];
+    for (const entry of entries) {
+      const idx = entry.indexOf(":");
+      if (idx === -1) continue;
+      const label = entry.slice(0, idx).trim();
+      const token = entry.slice(idx + 1).trim();
+      if (label && token) parsed.push({ label, token });
+    }
+
+    if (parsed.length === 0) return;
+
+    botLog.info(`Syncing ${parsed.length} account(s) from DISCORD_ACCOUNTS env var...`);
+
+    await db.delete(accountsTable);
+
+    for (const { label, token } of parsed) {
+      await db.insert(accountsTable).values({ label, token, enabled: true });
+    }
+
+    botLog.info(`Accounts synced: ${parsed.map((p) => p.label).join(", ")}`);
+  }
+
   async start(): Promise<void> {
     if (this.running) return;
+
+    await this.syncEnvAccounts();
 
     const [settings] = await db.select().from(botSettingsTable).limit(1);
     if (!settings || !settings.channelId || !settings.serverId) {

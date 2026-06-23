@@ -5,18 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { Eye, EyeOff, Save, Plus, Trash2, AlertTriangle, RefreshCw } from "lucide-react";
-
-const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
-
-async function apiFetch(path: string, opts?: RequestInit) {
-  const res = await fetch(`${BASE}${path}`, opts);
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({ error: res.statusText }));
-    throw new Error(err.error ?? res.statusText);
-  }
-  return res.json();
-}
+import { Save, AlertTriangle, RefreshCw } from "lucide-react";
+import { apiFetch } from "@/lib/api";
 
 interface BotSettings {
   id: number;
@@ -49,21 +39,10 @@ interface Account {
   connectionStatus: string;
 }
 
-function AccountRow({ account, onUpdate, onDelete }: {
+function AccountRow({ account, onToggle }: {
   account: Account;
-  onUpdate: (id: number, data: Partial<Account>) => void;
-  onDelete: (id: number) => void;
+  onToggle: (id: number, enabled: boolean) => void;
 }) {
-  const [editing, setEditing] = useState(false);
-  const [label, setLabel] = useState(account.label);
-  const [token, setToken] = useState(account.token);
-  const [showToken, setShowToken] = useState(false);
-
-  const save = () => {
-    onUpdate(account.id, { label, token });
-    setEditing(false);
-  };
-
   const statusColor: Record<string, string> = {
     connected: "bg-green-500",
     connecting: "bg-yellow-500 animate-pulse",
@@ -74,74 +53,18 @@ function AccountRow({ account, onUpdate, onDelete }: {
   return (
     <div className="p-3 bg-gray-800 rounded-lg space-y-2">
       <div className="flex items-center gap-3">
-        <span
-          className={`w-2 h-2 rounded-full shrink-0 ${statusColor[account.connectionStatus] ?? "bg-gray-600"}`}
-        />
-        {editing ? (
-          <Input
-            className="bg-gray-700 border-gray-600 text-white text-sm h-7 flex-1"
-            value={label}
-            onChange={(e) => setLabel(e.target.value)}
-          />
-        ) : (
-          <span className="text-sm font-medium text-white flex-1">
-            {account.label}
-            {account.username && (
-              <span className="text-gray-500 font-normal ml-2">@{account.username}</span>
-            )}
-          </span>
-        )}
+        <span className={`w-2 h-2 rounded-full shrink-0 ${statusColor[account.connectionStatus] ?? "bg-gray-600"}`} />
+        <span className="text-sm font-medium text-white flex-1">
+          {account.label}
+          {account.username && (
+            <span className="text-gray-500 font-normal ml-2">@{account.username}</span>
+          )}
+        </span>
         <Switch
           checked={account.enabled}
-          onCheckedChange={(v) => onUpdate(account.id, { enabled: v })}
+          onCheckedChange={(v) => onToggle(account.id, v)}
         />
-        <Button
-          size="sm"
-          variant="ghost"
-          className="h-7 px-2 text-gray-400 hover:text-white"
-          onClick={() => setEditing((v) => !v)}
-        >
-          {editing ? "Cancel" : "Edit"}
-        </Button>
-        <Button
-          size="sm"
-          variant="ghost"
-          className="h-7 px-2 text-red-500 hover:text-red-400"
-          onClick={() => onDelete(account.id)}
-        >
-          <Trash2 className="w-3 h-3" />
-        </Button>
       </div>
-
-      {editing && (
-        <div className="space-y-2 pl-5">
-          <div className="relative">
-            <Input
-              type={showToken ? "text" : "password"}
-              className="bg-gray-700 border-gray-600 text-white text-xs pr-8"
-              placeholder="Discord user token"
-              value={token}
-              onChange={(e) => setToken(e.target.value)}
-            />
-            <button
-              type="button"
-              className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500"
-              onClick={() => setShowToken((v) => !v)}
-            >
-              {showToken ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
-            </button>
-          </div>
-          <Button
-            size="sm"
-            className="bg-blue-600 hover:bg-blue-500 h-7 text-xs"
-            onClick={save}
-          >
-            <Save className="w-3 h-3 mr-1" />
-            Save
-          </Button>
-        </div>
-      )}
-
       <div className="flex gap-4 pl-5 text-xs text-gray-500">
         <span>Balance: <span className="text-yellow-400">{account.balance.toLocaleString()}</span></span>
         <span>Claimed: <span className="text-green-400">{account.totalClaimed.toLocaleString()}</span></span>
@@ -151,78 +74,6 @@ function AccountRow({ account, onUpdate, onDelete }: {
   );
 }
 
-function AddAccountForm({ onAdd }: { onAdd: (label: string, token: string) => void }) {
-  const [label, setLabel] = useState("");
-  const [token, setToken] = useState("");
-  const [showToken, setShowToken] = useState(false);
-  const [open, setOpen] = useState(false);
-
-  const submit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!label || !token) return;
-    onAdd(label, token);
-    setLabel("");
-    setToken("");
-    setOpen(false);
-  };
-
-  if (!open) {
-    return (
-      <Button
-        size="sm"
-        variant="outline"
-        className="border-dashed border-gray-600 text-gray-400 hover:text-white w-full"
-        onClick={() => setOpen(true)}
-      >
-        <Plus className="w-3 h-3 mr-1" />
-        Add Account
-      </Button>
-    );
-  }
-
-  return (
-    <form onSubmit={submit} className="p-3 bg-gray-800 rounded-lg space-y-2 border border-dashed border-gray-600">
-      <p className="text-xs text-gray-400 font-medium">New Account</p>
-      <Input
-        className="bg-gray-700 border-gray-600 text-white text-sm"
-        placeholder="Label (e.g. Main, Alt 1)"
-        value={label}
-        onChange={(e) => setLabel(e.target.value)}
-      />
-      <div className="relative">
-        <Input
-          type={showToken ? "text" : "password"}
-          className="bg-gray-700 border-gray-600 text-white text-sm pr-8"
-          placeholder="Discord user token"
-          value={token}
-          onChange={(e) => setToken(e.target.value)}
-        />
-        <button
-          type="button"
-          className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500"
-          onClick={() => setShowToken((v) => !v)}
-        >
-          {showToken ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
-        </button>
-      </div>
-      <div className="flex gap-2">
-        <Button type="submit" size="sm" className="bg-green-600 hover:bg-green-500 h-7 text-xs">
-          <Plus className="w-3 h-3 mr-1" />
-          Add
-        </Button>
-        <Button
-          type="button"
-          size="sm"
-          variant="ghost"
-          className="h-7 text-xs text-gray-400"
-          onClick={() => setOpen(false)}
-        >
-          Cancel
-        </Button>
-      </div>
-    </form>
-  );
-}
 
 export default function ConfigPanel() {
   const qc = useQueryClient();
@@ -261,28 +112,11 @@ export default function ConfigPanel() {
     },
   });
 
-  const updateAccountMut = useMutation({
-    mutationFn: ({ id, data }: { id: number; data: Partial<Account> }) =>
+  const toggleAccountMut = useMutation({
+    mutationFn: ({ id, enabled }: { id: number; enabled: boolean }) =>
       apiFetch(`/api/accounts/${id}`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
-      }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["accounts"] }),
-  });
-
-  const deleteAccountMut = useMutation({
-    mutationFn: (id: number) =>
-      apiFetch(`/api/accounts/${id}`, { method: "DELETE" }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["accounts"] }),
-  });
-
-  const addAccountMut = useMutation({
-    mutationFn: ({ label, token }: { label: string; token: string }) =>
-      apiFetch("/api/accounts", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ label, token }),
+        body: JSON.stringify({ enabled }),
       }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["accounts"] }),
   });
@@ -528,7 +362,7 @@ export default function ConfigPanel() {
         <CardHeader>
           <CardTitle className="text-white text-base">Accounts</CardTitle>
           <CardDescription className="text-gray-500 text-xs">
-            Add Discord accounts (user tokens) to claim nukes from. Each account claims independently.
+            Loaded from <span className="font-mono">DISCORD_ACCOUNTS</span> env var. Toggle to enable/disable.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-2">
@@ -539,14 +373,13 @@ export default function ConfigPanel() {
               <AccountRow
                 key={acc.id}
                 account={acc}
-                onUpdate={(id, data) => updateAccountMut.mutate({ id, data })}
-                onDelete={(id) => deleteAccountMut.mutate(id)}
+                onToggle={(id, enabled) => toggleAccountMut.mutate({ id, enabled })}
               />
             ))
           )}
-          <AddAccountForm
-            onAdd={(label, token) => addAccountMut.mutate({ label, token })}
-          />
+          <p className="text-xs text-gray-600 pt-1">
+            Accounts are loaded from the <span className="font-mono text-gray-500">DISCORD_ACCOUNTS</span> environment variable.
+          </p>
         </CardContent>
       </Card>
     </div>
