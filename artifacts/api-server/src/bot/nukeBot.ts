@@ -692,7 +692,15 @@ class NukeBot {
       const channel = client.channels.cache.get(channelId);
       if (!channel || !channel.isText()) throw new Error("Channel not found for this account");
 
-      const msg = await (channel as any).messages.fetch(triggerMsg.id).catch(() => null);
+      let msg: any = null;
+      try {
+        const fetched = (channel as any).messages.fetch(triggerMsg.id);
+        msg = fetched && typeof fetched.then === "function" ? await fetched : fetched;
+      } catch {
+        // fall back to triggerMsg itself — it already has components when coming from history scan
+        msg = triggerMsg ?? null;
+      }
+      if (!msg && triggerMsg?.components) msg = triggerMsg;
       let interactionSent = false;
 
       if (msg && msg.components && msg.components.length > 0) {
