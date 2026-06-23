@@ -919,7 +919,10 @@ class NukeBot {
 
             if (targetOption) {
               try {
-                const resp = await msg.selectMenu(selectComp.customId, [targetOption.value]);
+                // Pass the component object directly (not the customId string) to bypass
+                // the broken /[0-4]/ regex in discord.js-selfbot-v13 Message.js that
+                // misroutes string customIds containing digits 0-4 into the wrong branch.
+                const resp = await msg.selectMenu(selectComp, [targetOption.value]);
                 botLog.info(`[${runtime.label}] ✓ selected "${targetOption.label}"`, runtime.accountId);
                 interactionSent = true;
                 // Try to parse the direct return value (works when KA0SBOT replies ephemerally)
