@@ -1,74 +1,148 @@
 openapi: 3.1.0
 info:
-  # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: Blackjack Bot API specification
+  description: Clover Nuke Bot API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
-    description: Health operations
+  - name: accounts
   - name: bot
-    description: Bot control and configuration
-  - name: stats
-    description: Game statistics
-  - name: sessions
-    description: Game sessions
+  - name: events
+  - name: transfers
+
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
-          description: Healthy
+          description: OK
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
 
-  /bot/config:
+  /accounts:
     get:
-      operationId: getBotConfig
-      tags: [bot]
-      summary: Get bot configuration
+      operationId: getAccounts
+      tags: [accounts]
+      summary: List all accounts
       responses:
         "200":
-          description: Bot configuration
+          description: List of accounts
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/BotConfig"
-    put:
-      operationId: updateBotConfig
-      tags: [bot]
-      summary: Update bot configuration
+                type: object
+                properties:
+                  accounts:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/AccountWithStatus"
+                required: [accounts]
+    post:
+      operationId: createAccount
+      tags: [accounts]
+      summary: Add an account
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/BotConfigInput"
+              $ref: "#/components/schemas/AccountInput"
       responses:
         "200":
-          description: Updated bot configuration
+          description: Created account
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/BotConfig"
+                $ref: "#/components/schemas/Account"
+
+  /accounts/{id}:
+    put:
+      operationId: updateAccount
+      tags: [accounts]
+      summary: Update an account
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AccountInput"
+      responses:
+        "200":
+          description: Updated account
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Account"
+    delete:
+      operationId: deleteAccount
+      tags: [accounts]
+      summary: Remove an account
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+
+  /bot/settings:
+    get:
+      operationId: getBotSettings
+      tags: [bot]
+      summary: Get bot settings
+      responses:
+        "200":
+          description: Bot settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BotSettings"
+    put:
+      operationId: updateBotSettings
+      tags: [bot]
+      summary: Update bot settings
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BotSettingsInput"
+      responses:
+        "200":
+          description: Updated settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BotSettings"
 
   /bot/status:
     get:
       operationId: getBotStatus
       tags: [bot]
-      summary: Get current bot status
+      summary: Get status of all account connections
       responses:
         "200":
-          description: Bot status
+          description: All account statuses
           content:
             application/json:
               schema:
@@ -78,16 +152,16 @@ paths:
     post:
       operationId: startBot
       tags: [bot]
-      summary: Start the blackjack bot
+      summary: Connect all enabled accounts
       responses:
         "200":
-          description: Bot started
+          description: Started
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/BotStatus"
         "400":
-          description: Bad request
+          description: Error
           content:
             application/json:
               schema:
@@ -97,106 +171,89 @@ paths:
     post:
       operationId: stopBot
       tags: [bot]
-      summary: Stop the blackjack bot
+      summary: Disconnect all accounts
       responses:
         "200":
-          description: Bot stopped
+          description: Stopped
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/BotStatus"
 
-  /stats:
-    get:
-      operationId: getStats
-      tags: [stats]
-      summary: Get overall game statistics
+  /transfer:
+    post:
+      operationId: transfer
+      tags: [transfers]
+      summary: Send scrap from all accounts to a player
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TransferRequest"
       responses:
         "200":
-          description: Overall stats
+          description: Transfer results
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Stats"
+                $ref: "#/components/schemas/TransferResult"
 
-  /sessions:
+  /transfers:
     get:
-      operationId: getSessions
-      tags: [sessions]
-      summary: List game sessions
+      operationId: getTransfers
+      tags: [transfers]
+      summary: List transfer history
       parameters:
-        - name: limit
-          in: query
-          schema:
-            type: integer
-            default: 20
-        - name: offset
-          in: query
-          schema:
-            type: integer
-            default: 0
-      responses:
-        "200":
-          description: List of sessions
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  sessions:
-                    type: array
-                    items:
-                      $ref: "#/components/schemas/GameSession"
-                  total:
-                    type: integer
-                required:
-                  - sessions
-                  - total
-
-  /sessions/{id}/hands:
-    get:
-      operationId: getSessionHands
-      tags: [sessions]
-      summary: Get hands for a session
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: integer
         - name: limit
           in: query
           schema:
             type: integer
             default: 50
-        - name: offset
-          in: query
-          schema:
-            type: integer
-            default: 0
       responses:
         "200":
-          description: List of hands
+          description: Transfer log
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  hands:
+                  transfers:
                     type: array
                     items:
-                      $ref: "#/components/schemas/GameHand"
-                  total:
-                    type: integer
-                required:
-                  - hands
-                  - total
+                      $ref: "#/components/schemas/TransferLog"
+                required: [transfers]
+
+  /events:
+    get:
+      operationId: getEvents
+      tags: [events]
+      summary: Get nuke event history
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+      responses:
+        "200":
+          description: Nuke events
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  events:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/NukeEventWithClaims"
+                required: [events]
 
   /logs:
     get:
       operationId: getLogs
       tags: [bot]
-      summary: Get recent bot log entries
+      summary: Get recent log entries
       parameters:
         - name: limit
           in: query
@@ -205,7 +262,7 @@ paths:
             default: 100
       responses:
         "200":
-          description: Log entries
+          description: Logs
           content:
             application/json:
               schema:
@@ -215,8 +272,7 @@ paths:
                     type: array
                     items:
                       $ref: "#/components/schemas/LogEntry"
-                required:
-                  - logs
+                required: [logs]
 
 components:
   schemas:
@@ -225,246 +281,280 @@ components:
       properties:
         status:
           type: string
-      required:
-        - status
+      required: [status]
 
     ErrorResponse:
       type: object
       properties:
         error:
           type: string
-      required:
-        - error
+      required: [error]
 
-    BotConfig:
+    SuccessResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+      required: [ok]
+
+    Account:
       type: object
       properties:
         id:
           type: integer
-        discordToken:
+        label:
           type: string
+        token:
+          type: string
+        username:
+          type: string
+          nullable: true
+        discriminator:
+          type: string
+          nullable: true
+        avatarUrl:
+          type: string
+          nullable: true
+        balance:
+          type: integer
+        totalClaimed:
+          type: integer
+        totalTransferred:
+          type: integer
+        enabled:
+          type: boolean
+      required: [id, label, token, balance, totalClaimed, totalTransferred, enabled]
+
+    AccountWithStatus:
+      allOf:
+        - $ref: "#/components/schemas/Account"
+        - type: object
+          properties:
+            connected:
+              type: boolean
+            connectionStatus:
+              type: string
+              enum: [connected, connecting, disconnected, error]
+          required: [connected, connectionStatus]
+
+    AccountInput:
+      type: object
+      properties:
+        label:
+          type: string
+        token:
+          type: string
+        enabled:
+          type: boolean
+      required: [label, token]
+
+    BotSettings:
+      type: object
+      properties:
+        id:
+          type: integer
         serverId:
           type: string
         channelId:
           type: string
-        kaosPrefix:
+        cloverId:
           type: string
-        kaosUserId:
+        cloverPrefix:
           type: string
-        betAmount:
-          type: integer
-        strategy:
+        nukeKeywords:
           type: string
-          enum: [basic, aggressive, conservative]
-        delayMin:
+        giveCommand:
+          type: string
+        claimDelayMin:
           type: integer
-        delayMax:
+        claimDelayMax:
           type: integer
-        maxGames:
-          type: integer
-          nullable: true
-        stopOnLoss:
-          type: integer
-          nullable: true
-        stopOnWin:
-          type: integer
-          nullable: true
         enabled:
           type: boolean
       required:
         - id
-        - discordToken
         - serverId
         - channelId
-        - kaosPrefix
-        - kaosUserId
-        - betAmount
-        - strategy
-        - delayMin
-        - delayMax
+        - cloverId
+        - cloverPrefix
+        - nukeKeywords
+        - giveCommand
+        - claimDelayMin
+        - claimDelayMax
         - enabled
 
-    BotConfigInput:
+    BotSettingsInput:
       type: object
       properties:
-        discordToken:
-          type: string
         serverId:
           type: string
         channelId:
           type: string
-        kaosPrefix:
+        cloverId:
           type: string
-        kaosUserId:
+        cloverPrefix:
           type: string
-        betAmount:
-          type: integer
-        strategy:
+        nukeKeywords:
           type: string
-          enum: [basic, aggressive, conservative]
-        delayMin:
+        giveCommand:
+          type: string
+        claimDelayMin:
           type: integer
-        delayMax:
+        claimDelayMax:
           type: integer
-        maxGames:
-          type: integer
-          nullable: true
-        stopOnLoss:
-          type: integer
-          nullable: true
-        stopOnWin:
-          type: integer
-          nullable: true
       required:
-        - discordToken
         - serverId
         - channelId
-        - kaosPrefix
-        - kaosUserId
-        - betAmount
-        - strategy
-        - delayMin
-        - delayMax
+        - cloverId
+        - cloverPrefix
+        - nukeKeywords
+        - giveCommand
+        - claimDelayMin
+        - claimDelayMax
+
+    AccountStatus:
+      type: object
+      properties:
+        accountId:
+          type: integer
+        label:
+          type: string
+        username:
+          type: string
+          nullable: true
+        connected:
+          type: boolean
+        status:
+          type: string
+          enum: [connected, connecting, disconnected, error]
+        balance:
+          type: integer
+        claimsThisSession:
+          type: integer
+        scrapThisSession:
+          type: integer
+      required:
+        - accountId
+        - label
+        - connected
+        - status
+        - balance
+        - claimsThisSession
+        - scrapThisSession
 
     BotStatus:
       type: object
       properties:
         running:
           type: boolean
-        connected:
-          type: boolean
-        sessionId:
+        accounts:
+          type: array
+          items:
+            $ref: "#/components/schemas/AccountStatus"
+        totalClaimsToday:
           type: integer
-          nullable: true
-        handsThisSession:
+        totalScrapToday:
           type: integer
-        winsThisSession:
-          type: integer
-        lossesThisSession:
-          type: integer
-        scrapThisSession:
-          type: integer
-        currentState:
-          type: string
-          nullable: true
-        username:
-          type: string
-          nullable: true
         uptime:
           type: integer
-      required:
-        - running
-        - connected
-        - handsThisSession
-        - winsThisSession
-        - lossesThisSession
-        - scrapThisSession
-        - uptime
+      required: [running, accounts, totalClaimsToday, totalScrapToday, uptime]
 
-    Stats:
+    TransferRequest:
       type: object
       properties:
-        totalHands:
-          type: integer
-        wins:
-          type: integer
-        losses:
-          type: integer
-        pushes:
-          type: integer
-        blackjacks:
-          type: integer
-        winRate:
-          type: number
-        scrapNet:
-          type: integer
-        totalSessions:
-          type: integer
-        avgBet:
-          type: number
-      required:
-        - totalHands
-        - wins
-        - losses
-        - pushes
-        - blackjacks
-        - winRate
-        - scrapNet
-        - totalSessions
-        - avgBet
-
-    GameSession:
-      type: object
-      properties:
-        id:
-          type: integer
-        startedAt:
+        toUsername:
           type: string
-        endedAt:
-          type: string
+        amount:
+          type: integer
           nullable: true
-        totalHands:
-          type: integer
-        wins:
-          type: integer
-        losses:
-          type: integer
-        pushes:
-          type: integer
-        blackjacks:
-          type: integer
-        scrapNet:
-          type: integer
-        status:
-          type: string
-      required:
-        - id
-        - startedAt
-        - totalHands
-        - wins
-        - losses
-        - pushes
-        - blackjacks
-        - scrapNet
-        - status
+        accountIds:
+          type: array
+          items:
+            type: integer
+          nullable: true
+      required: [toUsername]
 
-    GameHand:
+    TransferResult:
+      type: object
+      properties:
+        results:
+          type: array
+          items:
+            type: object
+            properties:
+              accountId:
+                type: integer
+              label:
+                type: string
+              amount:
+                type: integer
+              success:
+                type: boolean
+              error:
+                type: string
+                nullable: true
+            required: [accountId, label, amount, success]
+        totalTransferred:
+          type: integer
+      required: [results, totalTransferred]
+
+    TransferLog:
       type: object
       properties:
         id:
           type: integer
-        sessionId:
+        fromAccountId:
           type: integer
-        bet:
-          type: integer
-        result:
+        fromLabel:
           type: string
           nullable: true
-        playerCards:
-          type: array
-          items:
-            type: string
-          nullable: true
-        dealerCards:
-          type: array
-          items:
-            type: string
-          nullable: true
-        actions:
-          type: array
-          items:
-            type: string
-          nullable: true
-        scrapDelta:
-          type: integer
-          nullable: true
-        playedAt:
+        toUsername:
           type: string
-      required:
-        - id
-        - sessionId
-        - bet
-        - playedAt
+        amount:
+          type: integer
+        success:
+          type: boolean
+        error:
+          type: string
+          nullable: true
+        sentAt:
+          type: string
+      required: [id, fromAccountId, toUsername, amount, success, sentAt]
+
+    NukeEventWithClaims:
+      type: object
+      properties:
+        id:
+          type: integer
+        messageId:
+          type: string
+        channelId:
+          type: string
+        detectedAt:
+          type: string
+        totalScrapClaimed:
+          type: integer
+        claimCount:
+          type: integer
+        claims:
+          type: array
+          items:
+            type: object
+            properties:
+              accountId:
+                type: integer
+              label:
+                type: string
+                nullable: true
+              success:
+                type: boolean
+              scrapGained:
+                type: integer
+              error:
+                type: string
+                nullable: true
+            required: [accountId, success, scrapGained]
+      required: [id, messageId, channelId, detectedAt, totalScrapClaimed, claimCount, claims]
 
     LogEntry:
       type: object
@@ -476,9 +566,7 @@ components:
           enum: [info, warn, error, debug]
         message:
           type: string
-        data:
+        accountId:
+          type: integer
           nullable: true
-      required:
-        - timestamp
-        - level
-        - message
+      required: [timestamp, level, message]
