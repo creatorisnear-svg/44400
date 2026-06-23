@@ -564,6 +564,9 @@ class NukeBot {
       return;
     }
 
+    // Scan channel history for nukes this account missed
+    this.scanAndClaimOldNukes(runtime, settings).catch(() => {});
+
     const keywords = settings.nukeKeywords.split(",").map((k) => k.trim()).filter(Boolean);
 
     client.on("messageCreate", async (msg: Message) => {
@@ -642,173 +645,230 @@ class NukeBot {
     await Promise.all(
       runtimes.map(async (runtime) => {
         await randDelay(settings.claimDelayMin, settings.claimDelayMax);
+        const result = await this.claimNukeForRuntime(runtime, triggerMsg, settings);
 
-        let success = false;
-        let scrapGained = 0;
-        let error: string | null = null;
-
-        try {
-          const client = runtime.client!;
-          const channel = client.channels.cache.get(triggerMsg.channelId);
-          if (!channel || !channel.isText()) {
-            throw new Error("Channel not found for this account");
-          }
-
-          const msg = await (channel as any).messages.fetch(triggerMsg.id).catch(() => null);
-          let claimed = false;
-
-          if (msg && msg.components && msg.components.length > 0) {
-            const targetServer = String((settings as any).transferServer ?? 1);
-
-            for (const row of msg.components) {
-              for (const component of (row as MessageActionRow).components) {
-                const compType = (component as any).type;
-
-                // SELECT_MENU = KA0SBOT "choose server" dropdown (primary method)
-                if (compType === "SELECT_MENU" || compType === 3) {
-                  try {
-                    const selectMenu = component as any;
-                    const options: any[] = selectMenu.options ?? [];
-
-                    botLog.info(
-                      `[${runtime.label}] select menu found with options: ${options.map((o: any) => `${o.label}(${o.value})`).join(", ")}`,
-                      runtime.accountId,
-                    );
-
-                    const targetOption =
-                      options.find((opt: any) =>
-                        String(opt.value) === targetServer ||
-                        opt.value?.toLowerCase().includes(targetServer) ||
-                        opt.label?.toLowerCase().includes(`server ${targetServer}`)
-                      ) ?? options[0];
-
-                    if (targetOption) {
-                      await selectMenu.select([targetOption.value]);
-                      claimed = true;
-                      botLog.info(
-                        `[${runtime.label}] ✓ selected "${targetOption.label}" (value: ${targetOption.value})`,
-                        runtime.accountId,
-                      );
-                    } else {
-                      botLog.warn(`[${runtime.label}] no matching option for server ${targetServer}`, runtime.accountId);
-                    }
-                  } catch (selErr) {
-                    botLog.warn(`[${runtime.label}] select menu error: ${(selErr as Error).message}`, runtime.accountId);
-                  }
-                  break;
-                }
-
-                // BUTTON fallback (other bots)
-                if (!claimed && (compType === "BUTTON" || compType === 2)) {
-                  try {
-                    await (component as MessageButton).click();
-                    claimed = true;
-                    botLog.info(`[${runtime.label}] ✓ clicked claim button`, runtime.accountId);
-                  } catch (btnErr) {
-                    botLog.warn(`[${runtime.label}] button click failed: ${(btnErr as Error).message}`, runtime.accountId);
-                  }
-                }
-              }
-              if (claimed) break;
-            }
-          } else if (msg) {
-            botLog.warn(`[${runtime.label}] nuke message has no components — cannot claim`, runtime.accountId);
-          } else {
-            botLog.warn(`[${runtime.label}] could not fetch nuke message ${triggerMsg.id}`, runtime.accountId);
-          }
-
-          if (!claimed) {
-            botLog.warn(`[${runtime.label}] all claim methods failed — no action taken`, runtime.accountId);
-          }
-
-          if (claimed) {
-            // KA0SBOT sends an ephemeral reply — invisible to messages.fetch().
-            // Listen for messageCreate BEFORE the interaction result arrives.
-            scrapGained = await new Promise<number>((resolve) => {
-              const timeoutHandle = setTimeout(() => {
-                client.off("messageCreate", handler);
-                resolve(0);
-              }, 8000);
-
-              function handler(m: any) {
-                if (settings.cloverId && m.author.id !== settings.cloverId) return;
-                const mentioned =
-                  !m.mentions?.users?.size ||
-                  m.mentions.users.has(client.user?.id ?? "");
-                if (!mentioned) return;
-                const fullText =
-                  (m.content ?? "") +
-                  " " +
-                  (m.embeds ?? [])
-                    .map((e: any) => `${e.title ?? ""} ${e.description ?? ""}`)
-                    .join(" ");
-                const parsed = parseScrapFromText(fullText);
-                if (parsed > 0) {
-                  clearTimeout(timeoutHandle);
-                  client.off("messageCreate", handler);
-                  resolve(parsed);
-                }
-              }
-
-              client.on("messageCreate", handler);
-            });
-
-            success = true;
-            runtime.claimsThisSession++;
-            runtime.scrapThisSession += scrapGained;
-            totalScrap += scrapGained;
-            claimCount++;
-
-            botLog.info(
-              `[${runtime.label}] claimed nuke! +${scrapGained} scrap`,
-              runtime.accountId,
-            );
-
-            if (scrapGained > 0) {
-              await db
-                .update(accountsTable)
-                .set({
-                  balance: (await db.select().from(accountsTable).where(eq(accountsTable.id, runtime.accountId)))[0]?.balance + scrapGained,
-                  totalClaimed: (await db.select().from(accountsTable).where(eq(accountsTable.id, runtime.accountId)))[0]?.totalClaimed + scrapGained,
-                  updatedAt: new Date(),
-                })
-                .where(eq(accountsTable.id, runtime.accountId))
-                .catch(() => {});
-            }
-          }
-        } catch (err) {
-          error = (err as Error).message;
-          botLog.error(`[${runtime.label}] claim error: ${error}`, runtime.accountId);
+        if (result.success) {
+          totalScrap += result.scrapGained;
+          claimCount++;
+          this.totalClaimsToday++;
+          this.totalScrapToday += result.scrapGained;
         }
 
         if (nukeEventId) {
-          await db
-            .insert(claimsTable)
-            .values({
-              nukeEventId,
-              accountId: runtime.accountId,
-              success,
-              scrapGained,
-              error,
-            })
-            .catch(() => {});
+          await db.insert(claimsTable).values({
+            nukeEventId,
+            accountId: runtime.accountId,
+            success: result.success,
+            scrapGained: result.scrapGained,
+            error: result.alreadyClaimed ? "already_claimed" : result.error,
+          }).catch(() => {});
         }
       }),
     );
 
     if (nukeEventId) {
-      await db
-        .update(nukeEventsTable)
+      await db.update(nukeEventsTable)
         .set({ totalScrapClaimed: totalScrap, claimCount })
         .where(eq(nukeEventsTable.id, nukeEventId))
         .catch(() => {});
     }
 
-    this.totalClaimsToday += claimCount;
-    this.totalScrapToday += totalScrap;
+    botLog.info(`✅ Nuke claimed by ${claimCount}/${runtimes.length} accounts. Total: +${totalScrap.toLocaleString()} clover points`);
+  }
+
+  private async claimNukeForRuntime(
+    runtime: AccountRuntime,
+    triggerMsg: any,
+    settings: typeof botSettingsTable.$inferSelect,
+  ): Promise<{ success: boolean; scrapGained: number; alreadyClaimed: boolean; error: string | null }> {
+    let success = false;
+    let scrapGained = 0;
+    let alreadyClaimed = false;
+    let error: string | null = null;
+
+    try {
+      const client = runtime.client!;
+      const channelId = triggerMsg.channelId ?? triggerMsg.channel_id ?? settings.channelId;
+      const channel = client.channels.cache.get(channelId);
+      if (!channel || !channel.isText()) throw new Error("Channel not found for this account");
+
+      const msg = await (channel as any).messages.fetch(triggerMsg.id).catch(() => null);
+      let interactionSent = false;
+
+      if (msg && msg.components && msg.components.length > 0) {
+        const targetServer = String((settings as any).transferServer ?? 1);
+
+        outer: for (const row of msg.components) {
+          for (const component of (row as MessageActionRow).components) {
+            const compType = (component as any).type;
+
+            // SELECT_MENU = KA0SBOT "choose server" dropdown
+            if (compType === "SELECT_MENU" || compType === 3) {
+              try {
+                const selectMenu = component as any;
+                const options: any[] = selectMenu.options ?? [];
+                botLog.info(
+                  `[${runtime.label}] select menu: ${options.map((o: any) => `${o.label}(${o.value})`).join(", ")}`,
+                  runtime.accountId,
+                );
+                const targetOption = options.find((opt: any) =>
+                  String(opt.value) === targetServer ||
+                  opt.value?.toLowerCase().includes(targetServer) ||
+                  opt.label?.toLowerCase().includes(`server ${targetServer}`)
+                ) ?? options[0];
+
+                if (targetOption) {
+                  await selectMenu.select([targetOption.value]);
+                  interactionSent = true;
+                  botLog.info(`[${runtime.label}] ✓ selected "${targetOption.label}"`, runtime.accountId);
+                } else {
+                  botLog.warn(`[${runtime.label}] no option for server ${targetServer}`, runtime.accountId);
+                }
+              } catch (selErr) {
+                botLog.warn(`[${runtime.label}] select error: ${(selErr as Error).message}`, runtime.accountId);
+              }
+              break outer;
+            }
+
+            // BUTTON fallback
+            if (!interactionSent && (compType === "BUTTON" || compType === 2)) {
+              try {
+                await (component as MessageButton).click();
+                interactionSent = true;
+                botLog.info(`[${runtime.label}] ✓ clicked button`, runtime.accountId);
+              } catch (btnErr) {
+                botLog.warn(`[${runtime.label}] button error: ${(btnErr as Error).message}`, runtime.accountId);
+              }
+            }
+          }
+        }
+      } else if (msg) {
+        botLog.warn(`[${runtime.label}] nuke message has no components`, runtime.accountId);
+      } else {
+        botLog.warn(`[${runtime.label}] could not fetch nuke message ${triggerMsg.id}`, runtime.accountId);
+      }
+
+      if (interactionSent) {
+        // KA0SBOT replies ephemerally — catch via messageCreate (not messages.fetch)
+        const rawResult = await new Promise<number>((resolve) => {
+          const timeoutHandle = setTimeout(() => {
+            client.off("messageCreate", handler);
+            resolve(0);
+          }, 8000);
+
+          function handler(m: any) {
+            if (settings.cloverId && m.author.id !== settings.cloverId) return;
+            const mentioned = !m.mentions?.users?.size || m.mentions.users.has(client.user?.id ?? "");
+            if (!mentioned) return;
+            const fullText = (m.content ?? "") + " " +
+              (m.embeds ?? []).map((e: any) => `${e.title ?? ""} ${e.description ?? ""}`).join(" ");
+
+            // "Already claimed" response — resolve immediately with sentinel -1
+            if (/already\s+claimed/i.test(fullText)) {
+              clearTimeout(timeoutHandle);
+              client.off("messageCreate", handler);
+              resolve(-1);
+              return;
+            }
+
+            const parsed = parseScrapFromText(fullText);
+            if (parsed > 0) {
+              clearTimeout(timeoutHandle);
+              client.off("messageCreate", handler);
+              resolve(parsed);
+            }
+          }
+
+          client.on("messageCreate", handler);
+        });
+
+        if (rawResult === -1) {
+          alreadyClaimed = true;
+          botLog.info(`[${runtime.label}] ℹ️ Already claimed this nuke`, runtime.accountId);
+        } else {
+          scrapGained = rawResult;
+          success = true;
+          runtime.claimsThisSession++;
+          runtime.scrapThisSession += scrapGained;
+          botLog.info(`[${runtime.label}] ✓ claimed! +${scrapGained.toLocaleString()} clover points`, runtime.accountId);
+
+          if (scrapGained > 0) {
+            const [dbAcc] = await db.select().from(accountsTable).where(eq(accountsTable.id, runtime.accountId));
+            if (dbAcc) {
+              await db.update(accountsTable).set({
+                balance: (dbAcc.balance ?? 0) + scrapGained,
+                totalClaimed: (dbAcc.totalClaimed ?? 0) + scrapGained,
+                updatedAt: new Date(),
+              }).where(eq(accountsTable.id, runtime.accountId)).catch(() => {});
+            }
+          }
+        }
+      } else {
+        botLog.warn(`[${runtime.label}] no interaction sent — cannot claim`, runtime.accountId);
+      }
+    } catch (err) {
+      error = (err as Error).message;
+      botLog.error(`[${runtime.label}] claim error: ${error}`, runtime.accountId);
+    }
+
+    return { success, scrapGained, alreadyClaimed, error };
+  }
+
+  private async scanAndClaimOldNukes(
+    runtime: AccountRuntime,
+    settings: typeof botSettingsTable.$inferSelect,
+  ): Promise<void> {
+    if (!runtime.client) return;
+    await delay(2500); // Let the client fully settle after login
+
+    const channel = runtime.client.channels.cache.get(settings.channelId);
+    if (!channel || !(channel as any).isText()) {
+      botLog.warn(`[${runtime.label}] Cannot scan for old nukes — channel not accessible`, runtime.accountId);
+      return;
+    }
+
+    const keywords = settings.nukeKeywords.split(",").map((k) => k.trim()).filter(Boolean);
+    if (keywords.length === 0) return;
+
+    botLog.info(`[${runtime.label}] 🔍 Scanning recent messages for unclaimed nukes...`, runtime.accountId);
+
+    let messages: Map<string, any>;
+    try {
+      messages = await (channel as any).messages.fetch({ limit: 50 });
+    } catch (err) {
+      botLog.warn(`[${runtime.label}] Could not fetch channel history: ${(err as Error).message}`, runtime.accountId);
+      return;
+    }
+
+    // Only messages from the clover bot that match nuke keywords AND still have a select menu
+    const nukeMsgs = [...messages.values()].filter((msg: any) => {
+      if (settings.cloverId && msg.author.id !== settings.cloverId) return false;
+      const embeds = msg.embeds ?? [];
+      const content = msg.content ?? "";
+      if (!isNukeMessage(content, embeds, keywords)) return false;
+      return (msg.components?.length ?? 0) > 0;
+    });
+
+    if (nukeMsgs.length === 0) {
+      botLog.info(`[${runtime.label}] No active nukes found in recent history`, runtime.accountId);
+      return;
+    }
+
+    botLog.info(`[${runtime.label}] Found ${nukeMsgs.length} nuke(s) in history — trying to claim...`, runtime.accountId);
+
+    let claimed = 0;
+    let alreadyClaimed = 0;
+
+    for (const msg of nukeMsgs) {
+      const result = await this.claimNukeForRuntime(runtime, msg, settings);
+      if (result.success) claimed++;
+      if (result.alreadyClaimed) alreadyClaimed++;
+      if (nukeMsgs.length > 1) await delay(1500);
+    }
 
     botLog.info(
-      `✅ Nuke claimed by ${claimCount}/${runtimes.length} accounts. Total scrap: +${totalScrap}`,
+      `[${runtime.label}] Old nuke scan done — claimed: ${claimed}, already claimed: ${alreadyClaimed}, total found: ${nukeMsgs.length}`,
+      runtime.accountId,
     );
   }
 
