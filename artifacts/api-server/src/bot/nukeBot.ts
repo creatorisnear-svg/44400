@@ -78,9 +78,14 @@ function isNukeMessage(content: string, embeds: any[], keywords: string[]): bool
 
 function parseScrapFromText(text: string): number {
   const patterns = [
-    /you\s+(?:received?|gained?|got)\s+(\d[\d,]*)\s*(?:scrap|coins?|points?)/i,
-    /\+\s*(\d[\d,]*)\s*(?:scrap|coins?|points?)/i,
-    /(\d[\d,]*)\s*(?:scrap|coins?|points?)\s+(?:claimed|received?)/i,
+    // KA0SBOT ephemeral: "Successfully claimed 100,000 clover points on Server 1"
+    /successfully\s+claimed\s+(\d[\d,]*)\s*(?:clover\s+)?points?/i,
+    /claimed\s+(\d[\d,]*)\s*(?:clover\s+)?points?/i,
+    // Generic
+    /you\s+(?:received?|gained?|got)\s+(\d[\d,]*)\s*(?:scrap|clover|coins?|points?)/i,
+    /\+\s*(\d[\d,]*)\s*(?:scrap|clover|coins?|points?)/i,
+    /(\d[\d,]*)\s*(?:clover\s+)?points?\s+(?:claimed|received?)/i,
+    /(\d[\d,]*)\s*(?:scrap|coins?)\s+(?:claimed|received?)/i,
   ];
   for (const p of patterns) {
     const m = text.match(p);
@@ -717,32 +722,36 @@ class NukeBot {
           }
 
           if (claimed) {
-            await delay(2500);
+            // KA0SBOT sends an ephemeral reply — invisible to messages.fetch().
+            // Listen for messageCreate BEFORE the interaction result arrives.
+            scrapGained = await new Promise<number>((resolve) => {
+              const timeoutHandle = setTimeout(() => {
+                client.off("messageCreate", handler);
+                resolve(0);
+              }, 8000);
 
-            const recent = await (channel as any).messages
-              .fetch({ limit: 5 })
-              .catch(() => null);
-
-            if (recent) {
-              for (const [, m] of recent) {
-                if (
-                  settings.cloverId && m.author.id !== settings.cloverId
-                ) continue;
-                const fullText =
-                  m.content +
-                  " " +
-                  m.embeds.map((e: any) => `${e.title ?? ""} ${e.description ?? ""}`).join(" ");
-                const userMentioned =
+              function handler(m: any) {
+                if (settings.cloverId && m.author.id !== settings.cloverId) return;
+                const mentioned =
                   !m.mentions?.users?.size ||
                   m.mentions.users.has(client.user?.id ?? "");
-                if (userMentioned) {
-                  const parsed = parseScrapFromText(fullText);
-                  if (parsed > 0) {
-                    scrapGained = parsed;
-                  }
+                if (!mentioned) return;
+                const fullText =
+                  (m.content ?? "") +
+                  " " +
+                  (m.embeds ?? [])
+                    .map((e: any) => `${e.title ?? ""} ${e.description ?? ""}`)
+                    .join(" ");
+                const parsed = parseScrapFromText(fullText);
+                if (parsed > 0) {
+                  clearTimeout(timeoutHandle);
+                  client.off("messageCreate", handler);
+                  resolve(parsed);
                 }
               }
-            }
+
+              client.on("messageCreate", handler);
+            });
 
             success = true;
             runtime.claimsThisSession++;
