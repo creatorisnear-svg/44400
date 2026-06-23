@@ -1,0 +1,68 @@
+The user wants to be able to add accounts directly through the dashboard instead of having to set environment variables. This means I need to:
+
+Add a form in the Config → Accounts section where you can enter a label + token and add the account directly to the database
+Add an API endpoint to add/remove accounts manually (not just from env var)
+The accounts table stores accounts from DISCORD_ACCOUNTS env var — I need to check if there's also a way to add them manually
+Let me look at the accounts table schema and the existing syncEnvAccounts method to understand how accounts are stored and then figure out how to add manual account creation.
+
+Let me read the schema and the syncEnvAccounts method.
+
+The user wants to add accounts directly from the dashboard with a label + token form. Let me check the DB schema and the account sync logic first:
+
+
+Show less
+
+Ran find
+
+Ran rg
+
+Planning schema and config adjustments
+
+Opened nukeBot.ts
+
+Ran find
+
+Planning account management UI (10 seconds)
+
+Ran find
+
+Ran find
+
+Finding schema file location
+
+Ran rg
+
+Analyzing schema and config
+
+Opened accounts.ts
+
+Opened config.tsx
+
+Planning account management features
+I need to:
+
+Add a manual boolean to the schema so manually-added accounts don't get wiped by the env sync
+Add POST /api/accounts and DELETE /api/accounts/:id routes
+Update syncEnvAccounts to skip manual accounts
+Revamp the Accounts UI in config with an Add form + delete button
+All independent — doing them all at once:
+
+
+4 actions
+I can see POST /api/accounts already exists but doesn't set manual: true. Let me fix that, add the delete route, and rebuild the accounts UI all at once:
+
+
+2 actions
+Now updating the Accounts UI in config.tsx with the Add Account form and delete buttons:
+
+
+2 actions
+Now updating the AccountRow to add a delete button, and the Accounts card to include the Add form:
+
+
+2 actions
+Now wire up the delete mutation and AddAccountForm inside the Accounts card:
+
+
+Opened config.tsx
+You've reached your daily free quota limit. It will reset at 12:00 AM UTC.

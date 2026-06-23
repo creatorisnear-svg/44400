@@ -219,6 +219,12 @@ export default function ConfigPanel() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["accounts"] }),
   });
 
+  const deleteAccountMut = useMutation({
+    mutationFn: (id: number) =>
+      apiFetch(`/api/accounts/${id}`, { method: "DELETE" }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["accounts"] }),
+  });
+
   const set = (key: string, value: any) => setForm((f) => ({ ...f, [key]: value }));
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -460,24 +466,25 @@ export default function ConfigPanel() {
         <CardHeader>
           <CardTitle className="text-white text-base">Accounts</CardTitle>
           <CardDescription className="text-gray-500 text-xs">
-            Loaded from <span className="font-mono">DISCORD_ACCOUNTS</span> env var. Toggle to enable/disable.
+            Add accounts directly or load from the <span className="font-mono">DISCORD_ACCOUNTS</span> env var. Toggle to enable/disable.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-2">
           {accountsLoading ? (
             <div className="text-gray-500 text-sm py-2 flex gap-2"><RefreshCw className="w-4 h-4 animate-spin" /> Loading...</div>
+          ) : accounts.length === 0 ? (
+            <p className="text-xs text-gray-600 py-2">No accounts yet. Add one below.</p>
           ) : (
             accounts.map((acc) => (
               <AccountRow
                 key={acc.id}
                 account={acc}
                 onToggle={(id, enabled) => toggleAccountMut.mutate({ id, enabled })}
+                onDelete={(id) => deleteAccountMut.mutate(id)}
               />
             ))
           )}
-          <p className="text-xs text-gray-600 pt-1">
-            Accounts are loaded from the <span className="font-mono text-gray-500">DISCORD_ACCOUNTS</span> environment variable.
-          </p>
+          <AddAccountForm onAdded={() => qc.invalidateQueries({ queryKey: ["accounts"] })} />
         </CardContent>
       </Card>
 
