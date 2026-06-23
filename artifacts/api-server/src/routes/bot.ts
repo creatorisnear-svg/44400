@@ -120,6 +120,12 @@ router.put("/bot/settings", async (req, res) => {
     .set({ ...body, updatedAt: new Date() })
     .where(eq(botSettingsTable.id, existing.id))
     .returning();
+
+  // If auto-join servers changed, immediately trigger join+link on all connected accounts
+  if (body.autoJoinServers !== undefined) {
+    nukeBot.triggerJoinAndLink().catch(() => {});
+  }
+
   return res.json(updated);
 });
 

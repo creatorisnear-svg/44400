@@ -1296,6 +1296,31 @@ class NukeBot {
     return [...this.runtimes.values()].filter((r) => r.status === "connected" && r.client).length;
   }
 
+  /** Called after settings are saved — joins/links any newly added servers on all live accounts. */
+  async triggerJoinAndLink(): Promise<void> {
+    const [settings] = await db.select().from(botSettingsTable).limit(1);
+    if (!settings) return;
+
+    const connected = [...this.runtimes.entries()].filter(
+      ([, r]) => r.status === "connected" && r.client,
+    );
+    if (!connected.length) return;
+
+    const accounts = await db.select().from(accountsTable);
+
+    for (const [accountId, runtime] of connected) {
+      const account = accounts.find((a) => a.id === accountId);
+      if (!account || !account.enabled) continue;
+      this.joinAndLinkServers(runtime, account, settings).catch((e) => {
+        botLog.warn(
+          `[${account.label}] triggerJoinAndLink error: ${(e as Error).message}`,
+          account.id,
+        );
+      });
+      await delay(500); // small stagger between accounts
+    }
+  }
+
   private async joinAndLinkServers(
     runtime: AccountRuntime,
     account: typeof accountsTable.$inferSelect,
