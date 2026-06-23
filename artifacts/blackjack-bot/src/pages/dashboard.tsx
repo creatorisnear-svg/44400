@@ -116,50 +116,163 @@ function StatCard({
   );
 }
 
-function AccountCard({ account }: { account: any }) {
-  const statusMap: Record<string, { icon: any; label: string; dot: string; spin?: boolean }> = {
-    connected:    { icon: Wifi,     label: "Online",      dot: "bg-emerald-400 animate-pulse" },
-    connecting:   { icon: Loader2,  label: "Connecting",  dot: "bg-yellow-400 animate-pulse", spin: true },
-    disconnected: { icon: WifiOff,  label: "Offline",     dot: "bg-gray-600" },
-    error:        { icon: XCircle,  label: "Error",       dot: "bg-red-500" },
+function AccountCard({ account, defaultRecipient }: { account: any; defaultRecipient?: string }) {
+  const qc = useQueryClient();
+  const statusMap: Record<string, { label: string; dot: string }> = {
+    connected:    { label: "Online",      dot: "bg-emerald-400 animate-pulse" },
+    connecting:   { label: "Connecting",  dot: "bg-yellow-400 animate-pulse" },
+    disconnected: { label: "Offline",     dot: "bg-gray-600" },
+    error:        { label: "Error",       dot: "bg-red-500" },
   };
   const s = statusMap[account.connectionStatus ?? "disconnected"] ?? statusMap.disconnected;
   const bal = account.balance ?? 0;
   const claimed = account.totalClaimed ?? 0;
   const sent = account.totalTransferred ?? 0;
+  const isConnected = account.connectionStatus === "connected";
+
+  const [showSend, setShowSend] = useState(false);
+  const [recipient, setRecipient] = useState(defaultRecipient ?? "");
+  const [customAmount, setCustomAmount] = useState("");
+  const [result, setResult] = useState<{ ok: boolean; msg: string } | null>(null);
+
+  const sendMut = useMutation({
+    mutationFn: (payload: { toUsername: string; amount: number }) =>
+      apiFetch("/api/transfer", {
+        method: "POST",
+        body: JSON.stringify({ toUsername: payload.toUsername, amount: payload.amount, accountIds: [account.id] }),
+      }),
+    onSuccess: (data) => {
+      const r = data.results?.[0];
+      if (r?.success) {
+        setResult({ ok: true, msg: `✓ Sent ${r.amount.toLocaleString()} to @${data.results[0].toUsername ?? recipient}` });
+        qc.invalidateQueries({ queryKey: ["accounts"] });
+      } else {
+        setResult({ ok: false, msg: r?.error ?? "Transfer failed" });
+      }
+      setTimeout(() => { setResult(null); setShowSend(false); setCustomAmount(""); }, 4000);
+    },
+    onError: (e) => {
+      setResult({ ok: false, msg: (e as Error).message });
+      setTimeout(() => setResult(null), 4000);
+    },
+  });
+
+  const sendAmount = customAmount ? Number(customAmount) : bal;
+
+  function handleSend(e: React.FormEvent) {
+    e.preventDefault();
+    if (!recipient.trim() || sendAmount <= 0) return;
+    setResult(null);
+    sendMut.mutate({ toUsername: recipient.trim().replace(/^@/, ""), amount: sendAmount });
+  }
 
   return (
-    <div className="rounded-xl border border-gray-700/60 bg-gray-800/50 p-4 flex items-center gap-4">
-      <div className="flex flex-col items-center gap-1.5">
-        <span className={`w-2.5 h-2.5 rounded-full ${s.dot}`} />
+    <div className="rounded-xl border border-gray-700/60 bg-gray-800/50 p-4 space-y-3">
+      {/* Top row */}
+      <div className="flex items-center gap-4">
+        <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${s.dot}`} />
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 mb-1">
+            <span className="text-sm font-semibold text-white truncate">{account.label}</span>
+            {account.username && (
+              <span className="text-[11px] text-gray-500 truncate">@{account.username}</span>
+            )}
+            <span className={`ml-auto text-[11px] font-medium ${
+              s.label === "Online" ? "text-emerald-400" :
+              s.label === "Connecting" ? "text-yellow-400" :
+              s.label === "Error" ? "text-red-400" : "text-gray-500"
+            }`}>{s.label}</span>
+          </div>
+          <div className="grid grid-cols-3 gap-2 text-[11px]">
+            <div className="bg-gray-900/60 rounded-lg px-2 py-1.5 text-center">
+              <div className="text-gray-500 mb-0.5">Balance</div>
+              <div className="text-yellow-400 font-bold font-mono">{bal.toLocaleString()}</div>
+            </div>
+            <div className="bg-gray-900/60 rounded-lg px-2 py-1.5 text-center">
+              <div className="text-gray-500 mb-0.5">Claimed</div>
+              <div className="text-emerald-400 font-bold font-mono">{claimed.toLocaleString()}</div>
+            </div>
+            <div className="bg-gray-900/60 rounded-lg px-2 py-1.5 text-center">
+              <div className="text-gray-500 mb-0.5">Sent</div>
+              <div className="text-blue-400 font-bold font-mono">{sent.toLocaleString()}</div>
+            </div>
+          </div>
+        </div>
       </div>
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2 mb-1">
-          <span className="text-sm font-semibold text-white truncate">{account.label}</span>
-          {account.username && (
-            <span className="text-[11px] text-gray-500 truncate">@{account.username}</span>
+
+      {/* Quick send button */}
+      {isConnected && bal > 0 && !showSend && !result && (
+        <button
+          onClick={() => { setShowSend(true); setRecipient(defaultRecipient ?? ""); setCustomAmount(""); }}
+          className="w-full text-xs text-blue-400 hover:text-blue-300 border border-blue-700/40 hover:border-blue-500/60 bg-blue-900/10 hover:bg-blue-900/20 rounded-lg py-1.5 flex items-center justify-center gap-1.5 transition-colors"
+        >
+          <Send className="w-3 h-3" />
+          Quick Send {bal.toLocaleString()} balance
+        </button>
+      )}
+
+      {/* Inline send form */}
+      {showSend && !result && (
+        <form onSubmit={handleSend} className="space-y-2 pt-1 border-t border-gray-700/60">
+          <p className="text-[10px] text-gray-500 uppercase tracking-widest font-semibold">Quick Transfer</p>
+          <div className="flex gap-2">
+            <div className="flex items-center gap-1 flex-1 bg-gray-900 border border-gray-600 rounded-lg px-2">
+              <span className="text-gray-500 text-xs shrink-0">@</span>
+              <input
+                className="bg-transparent text-white text-xs flex-1 outline-none py-1.5 placeholder:text-gray-600"
+                placeholder="recipient username"
+                value={recipient}
+                onChange={(e) => setRecipient(e.target.value)}
+                autoFocus
+              />
+            </div>
+            <div className="flex items-center gap-1 w-28 bg-gray-900 border border-gray-600 rounded-lg px-2">
+              <input
+                type="number"
+                min={1}
+                max={bal}
+                className="bg-transparent text-white text-xs font-mono flex-1 outline-none py-1.5 placeholder:text-gray-600 w-full"
+                placeholder={String(bal)}
+                value={customAmount}
+                onChange={(e) => setCustomAmount(e.target.value)}
+              />
+            </div>
+          </div>
+          {sendAmount > 0 && (
+            <div className="text-[10px] text-gray-500 flex justify-between px-0.5">
+              <span>Sending <span className="text-white font-mono">{sendAmount.toLocaleString()}</span></span>
+              <span>Recipient gets <span className="text-emerald-400 font-mono">{net(sendAmount).toLocaleString()}</span> (−20% tax)</span>
+            </div>
           )}
-          <span className={`ml-auto text-[11px] font-medium ${
-            s.label === "Online" ? "text-emerald-400" :
-            s.label === "Connecting" ? "text-yellow-400" :
-            s.label === "Error" ? "text-red-400" : "text-gray-500"
-          }`}>{s.label}</span>
+          <div className="flex gap-2">
+            <button
+              type="submit"
+              disabled={!recipient.trim() || sendAmount <= 0 || sendMut.isPending}
+              className="flex-1 text-xs bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg py-1.5 flex items-center justify-center gap-1.5 transition-colors"
+            >
+              {sendMut.isPending
+                ? <><Loader2 className="w-3 h-3 animate-spin" /> Sending…</>
+                : <><Send className="w-3 h-3" /> Send</>}
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowSend(false)}
+              className="text-xs text-gray-500 hover:text-gray-300 border border-gray-700 hover:border-gray-500 rounded-lg px-3 py-1.5 transition-colors"
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
+      )}
+
+      {/* Feedback */}
+      {result && (
+        <div className={`text-xs text-center py-1.5 rounded-lg font-medium ${
+          result.ok ? "text-emerald-300 bg-emerald-900/20 border border-emerald-700/30" : "text-red-300 bg-red-900/20 border border-red-700/30"
+        }`}>
+          {result.msg}
         </div>
-        <div className="grid grid-cols-3 gap-2 text-[11px]">
-          <div className="bg-gray-900/60 rounded-lg px-2 py-1.5 text-center">
-            <div className="text-gray-500 mb-0.5">Balance</div>
-            <div className="text-yellow-400 font-bold font-mono">{bal.toLocaleString()}</div>
-          </div>
-          <div className="bg-gray-900/60 rounded-lg px-2 py-1.5 text-center">
-            <div className="text-gray-500 mb-0.5">Claimed</div>
-            <div className="text-emerald-400 font-bold font-mono">{claimed.toLocaleString()}</div>
-          </div>
-          <div className="bg-gray-900/60 rounded-lg px-2 py-1.5 text-center">
-            <div className="text-gray-500 mb-0.5">Sent</div>
-            <div className="text-blue-400 font-bold font-mono">{sent.toLocaleString()}</div>
-          </div>
-        </div>
-      </div>
+      )}
     </div>
   );
 }
@@ -504,6 +617,11 @@ export default function Dashboard() {
   const { data: status } = useStatus();
   const { data: logsData } = useLogs();
   const { data: accountsData } = useAccounts(fastPoll);
+  const { data: settings } = useQuery({
+    queryKey: ["bot-settings"],
+    queryFn: () => apiFetch("/api/bot/settings"),
+    staleTime: 30_000,
+  });
   const logRef = useRef<HTMLDivElement>(null);
   const [autoScroll, setAutoScroll] = useState(true);
 
@@ -712,7 +830,13 @@ export default function Dashboard() {
                   No accounts configured. Go to Config → Accounts to add some.
                 </div>
               ) : (
-                accounts.map((acc: any) => <AccountCard key={acc.id} account={acc} />)
+                accounts.map((acc: any) => (
+                  <AccountCard
+                    key={acc.id}
+                    account={acc}
+                    defaultRecipient={settings?.autoTransferRecipient ?? ""}
+                  />
+                ))
               )}
             </div>
           </TabsContent>
