@@ -921,21 +921,28 @@ class NukeBot {
               try {
                 const resp = await msg.selectMenu(selectComp.customId, [targetOption.value]);
                 botLog.info(`[${runtime.label}] ✓ selected "${targetOption.label}"`, runtime.accountId);
+                interactionSent = true;
                 // Try to parse the direct return value (works when KA0SBOT replies ephemerally)
                 const respText = extractText(resp);
                 if (respText.trim()) {
                   botLog.info(`[${runtime.label}] selectMenu raw resp: "${respText.slice(0, 200)}"`, runtime.accountId);
                   if (/already\s+claimed/i.test(respText)) {
                     doResolve({ amount: 0, alreadyClaimed: true });
-                  } else {
+                  } else if (!/nuke\s+reward/i.test(respText)) {
                     const parsed = parseScrapFromText(respText);
                     if (parsed > 0) doResolve({ amount: parsed, alreadyClaimed: false });
                   }
                 }
               } catch (selErr) {
-                botLog.warn(`[${runtime.label}] selectMenu error (interaction was sent): ${(selErr as Error).message}`, runtime.accountId);
+                const selErrMsg = (selErr as Error).message;
+                if (selErrMsg.includes("SELECT_MENU_NOT_FOUND")) {
+                  botLog.warn(`[${runtime.label}] select menu not found in message (component may have expired)`, runtime.accountId);
+                } else {
+                  // Error thrown AFTER Discord received the interaction — still mark sent
+                  interactionSent = true;
+                  botLog.warn(`[${runtime.label}] selectMenu error (interaction was sent): ${selErrMsg}`, runtime.accountId);
+                }
               }
-              interactionSent = true;
             } else {
               botLog.warn(`[${runtime.label}] no option for server ${targetServer}`, runtime.accountId);
             }
@@ -1029,13 +1036,34 @@ class NukeBot {
       return;
     }
 
-    // Only messages from the clover bot that match nuke keywords AND still have a select menu
+    const now = Math.floor(Date.now() / 1000);
+
+    // Only messages from the clover bot that match nuke keywords, still have an active (non-disabled)
+    // select menu, AND haven't expired (parse <t:UNIX:R> from the embed text)
     const nukeMsgs = [...messages.values()].filter((msg: any) => {
       if (settings.cloverId && msg.author.id !== settings.cloverId) return false;
       const embeds = msg.embeds ?? [];
       const content = msg.content ?? "";
       if (!isNukeMessage(content, embeds, keywords)) return false;
-      return (msg.components?.length ?? 0) > 0;
+
+      // Must have at least one non-disabled interactable component
+      const allComps: any[] = (msg.components ?? []).flatMap((row: any) => row.components ?? []);
+      const hasActive = allComps.some(
+        (c: any) => !c.disabled && (c.type === 3 || c.type === "STRING_SELECT" || c.type === "SELECT_MENU" || c.type === 2 || c.type === "BUTTON"),
+      );
+      if (!hasActive) return false;
+
+      // Parse expiry from Discord timestamp: <t:1234567890:R>
+      const fullText = content + " " + embeds.map((e: any) =>
+        `${e.title ?? ""} ${e.description ?? ""} ${(e.fields ?? []).map((f: any) => `${f.name} ${f.value}`).join(" ")}`
+      ).join(" ");
+      const tsMatch = fullText.match(/<t:(\d+):[^>]*>/);
+      if (tsMatch) {
+        const expiry = parseInt(tsMatch[1], 10);
+        if (expiry < now) return false; // nuke has expired
+      }
+
+      return true;
     });
 
     if (nukeMsgs.length === 0) {
@@ -1161,8 +1189,9 @@ class NukeBot {
     );
     if (runtimes.length === 0) throw new Error("No connected accounts. Start the bot first.");
 
-    const transferChannelId = (settings as any).transferChannelId || settings.channelId;
+    const channelId = (settings as any).transferChannelId || settings.channelId;
     const cloverId = settings.cloverId;
+    const prefix = (settings as any).cloverPrefix || "%";
 
     botLog.info(`💰 Refreshing balances for ${runtimes.length} account(s)...`);
 
@@ -1189,75 +1218,110 @@ class NukeBot {
       return null;
     };
 
-    const extractBalanceFromMsg = (msg: any): number | null => {
-      if (!msg) return null;
-      const fullText = [
+    const extractBalanceText = (msg: any): string => {
+      if (!msg) return "";
+      return [
         msg.content ?? "",
         ...(msg.embeds ?? []).map((e: any) =>
           `${e.title ?? ""} ${e.description ?? ""} ${(e.fields ?? []).map((f: any) => `${f.name} ${f.value}`).join(" ")}`
         ),
       ].join(" ");
-      return parseBalanceFromText(fullText);
     };
 
     const results: { accountId: number; label: string; balance: number | null; error?: string }[] = [];
 
     for (let idx = 0; idx < runtimes.length; idx++) {
       const runtime = runtimes[idx];
-      // Stagger requests — 5 seconds between accounts to avoid spam detection
-      if (idx > 0) await delay(5000);
+      if (idx > 0) await delay(3000);
 
       try {
-        const channel = runtime.client!.channels.cache.get(transferChannelId);
+        const client = runtime.client!;
+        const channel = client.channels.cache.get(channelId);
         if (!channel || !(channel as any).isText()) {
-          throw new Error(`Channel ${transferChannelId} not accessible`);
+          throw new Error(`Channel ${channelId} not accessible for ${runtime.label}`);
         }
 
-        botLog.info(`[${runtime.label}] 💰 Sending /balance...`, runtime.accountId);
+        botLog.info(`[${runtime.label}] 💰 Requesting balance...`, runtime.accountId);
 
-        // Use sendSlash — the correct way to invoke slash commands via selfbot-v13.
-        // It returns a Promise that resolves to the ephemeral interaction response.
-        let parsedBalance: number | null = null;
-        try {
-          const resp = await (channel as any).sendSlash(cloverId, "balance");
-          parsedBalance = extractBalanceFromMsg(resp);
-          if (parsedBalance === null) {
-            // Log full structure so we can see where the data lives
-            const keys = resp ? Object.keys(resp).join(", ") : "null";
-            const rawContent = resp?.content ?? resp?.message?.content ?? "";
-            const rawEmbeds = (resp?.embeds ?? resp?.message?.embeds ?? []).map((e: any) =>
-              `${e.title ?? ""} ${e.description ?? ""} ${(e.fields ?? []).map((f: any) => `${f.name}: ${f.value}`).join(" ")}`
-            ).join(" ");
-            botLog.warn(`[${runtime.label}] /balance parse failed. Keys: [${keys}] Content: "${rawContent.slice(0, 100)}" Embeds: "${rawEmbeds.slice(0, 200)}"`, runtime.accountId);
-            // Try nested message field (some selfbot versions wrap response)
-            if (resp?.message) parsedBalance = extractBalanceFromMsg(resp.message);
-          }
-        } catch (slashErr) {
-          // sendSlash failed (e.g. command not found in this channel) — try text fallback
-          botLog.warn(`[${runtime.label}] sendSlash failed (${(slashErr as Error).message}), trying %balance text...`, runtime.accountId);
-          const prefix = settings.cloverPrefix || "%";
-          await (channel as any).send(`${prefix}balance`);
-          await delay(3500);
+        // Listen for KA0SBOT's reply BEFORE sending the command
+        const balancePromise = new Promise<number | null>((resolve) => {
+          let resolved = false;
+          const done = (val: number | null) => {
+            if (resolved) return;
+            resolved = true;
+            client.off("messageCreate", msgHandler);
+            client.off("raw", rawHandler);
+            resolve(val);
+          };
 
-          // Read recent messages to find KA0SBOT's reply
-          const recent = await (channel as any).messages.fetch({ limit: 10 }).catch(() => null);
-          if (recent) {
-            for (const [, msg] of recent) {
-              if (cloverId && msg.author.id !== cloverId) continue;
-              parsedBalance = extractBalanceFromMsg(msg);
-              if (parsedBalance !== null) break;
+          const timer = setTimeout(() => done(null), 8000);
+
+          const tryParse = (text: string): boolean => {
+            // Skip the command echo itself
+            if (text.trim().startsWith(prefix + "balance") || text.trim().startsWith("/balance")) return false;
+            const val = parseBalanceFromText(text);
+            if (val !== null && val >= 0) {
+              clearTimeout(timer);
+              done(val);
+              return true;
             }
+            return false;
+          };
+
+          function msgHandler(m: any) {
+            if (m.channelId !== channelId) return;
+            if (cloverId && m.author?.id !== cloverId) return;
+            tryParse(extractBalanceText(m));
+          }
+
+          function rawHandler(packet: any) {
+            if (packet.t !== "MESSAGE_CREATE" && packet.t !== "INTERACTION_SUCCESS") return;
+            const d = packet.d ?? packet;
+            if ((d.channel_id ?? d.channelId) !== channelId) return;
+            const authorId = d.author?.id ?? d.member?.user?.id;
+            if (cloverId && authorId && authorId !== cloverId) return;
+            const msgData = d.message ?? d;
+            tryParse(extractBalanceText(msgData));
+          }
+
+          client.on("messageCreate", msgHandler);
+          client.on("raw", rawHandler);
+        });
+
+        // Try sendSlash first; fall back to text command
+        let slashOk = false;
+        if (cloverId) {
+          try {
+            const resp = await (channel as any).sendSlash(cloverId, "balance");
+            slashOk = true;
+            // sendSlash may return the reply directly (ephemeral)
+            const directText = extractBalanceText(resp?.message ?? resp);
+            const directVal = parseBalanceFromText(directText);
+            if (directVal !== null) {
+              botLog.info(`[${runtime.label}] 💰 Balance from slash response: ${directVal.toLocaleString()}`, runtime.accountId);
+              await db.update(accountsTable).set({ balance: directVal, updatedAt: new Date() })
+                .where(eq(accountsTable.id, runtime.accountId)).catch(() => {});
+              results.push({ accountId: runtime.accountId, label: runtime.label, balance: directVal });
+              continue;
+            }
+          } catch {
+            slashOk = false;
           }
         }
+
+        if (!slashOk) {
+          await (channel as any).send(`${prefix}balance`);
+          botLog.info(`[${runtime.label}] 💰 Sent ${prefix}balance text command`, runtime.accountId);
+        }
+
+        const parsedBalance = await balancePromise;
 
         if (parsedBalance !== null) {
-          await db.update(accountsTable).set({
-            balance: parsedBalance,
-            updatedAt: new Date(),
-          }).where(eq(accountsTable.id, runtime.accountId)).catch(() => {});
+          await db.update(accountsTable).set({ balance: parsedBalance, updatedAt: new Date() })
+            .where(eq(accountsTable.id, runtime.accountId)).catch(() => {});
           botLog.info(`[${runtime.label}] 💰 Balance updated: ${parsedBalance.toLocaleString()}`, runtime.accountId);
         } else {
-          botLog.warn(`[${runtime.label}] Could not parse balance from bot reply`, runtime.accountId);
+          botLog.warn(`[${runtime.label}] 💰 No balance reply received within 8s`, runtime.accountId);
         }
 
         results.push({ accountId: runtime.accountId, label: runtime.label, balance: parsedBalance });
