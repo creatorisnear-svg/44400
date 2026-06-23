@@ -4,14 +4,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Eye, EyeOff, Save, AlertTriangle } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Eye, EyeOff, Save, Plus, Trash2, AlertTriangle, RefreshCw } from "lucide-react";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -24,313 +18,475 @@ async function apiFetch(path: string, opts?: RequestInit) {
   return res.json();
 }
 
-interface Config {
+interface BotSettings {
   id: number;
-  discordToken: string;
   serverId: string;
   channelId: string;
-  kaosPrefix: string;
-  kaosUserId: string;
-  betAmount: number;
-  strategy: string;
-  delayMin: number;
-  delayMax: number;
-  maxGames: number | null;
-  stopOnLoss: number | null;
-  stopOnWin: number | null;
+  cloverId: string;
+  cloverPrefix: string;
+  nukeKeywords: string;
+  giveCommand: string;
+  claimDelayMin: number;
+  claimDelayMax: number;
+  transferServer: number;
+  enabled: boolean;
+}
+
+interface Account {
+  id: number;
+  label: string;
+  token: string;
+  username: string | null;
+  balance: number;
+  totalClaimed: number;
+  totalTransferred: number;
+  enabled: boolean;
+  connected: boolean;
+  connectionStatus: string;
+}
+
+function AccountRow({ account, onUpdate, onDelete }: {
+  account: Account;
+  onUpdate: (id: number, data: Partial<Account>) => void;
+  onDelete: (id: number) => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [label, setLabel] = useState(account.label);
+  const [token, setToken] = useState(account.token);
+  const [showToken, setShowToken] = useState(false);
+
+  const save = () => {
+    onUpdate(account.id, { label, token });
+    setEditing(false);
+  };
+
+  const statusColor: Record<string, string> = {
+    connected: "bg-green-500",
+    connecting: "bg-yellow-500 animate-pulse",
+    error: "bg-red-500",
+    disconnected: "bg-gray-600",
+  };
+
+  return (
+    <div className="p-3 bg-gray-800 rounded-lg space-y-2">
+      <div className="flex items-center gap-3">
+        <span
+          className={`w-2 h-2 rounded-full shrink-0 ${statusColor[account.connectionStatus] ?? "bg-gray-600"}`}
+        />
+        {editing ? (
+          <Input
+            className="bg-gray-700 border-gray-600 text-white text-sm h-7 flex-1"
+            value={label}
+            onChange={(e) => setLabel(e.target.value)}
+          />
+        ) : (
+          <span className="text-sm font-medium text-white flex-1">
+            {account.label}
+            {account.username && (
+              <span className="text-gray-500 font-normal ml-2">@{account.username}</span>
+            )}
+          </span>
+        )}
+        <Switch
+          checked={account.enabled}
+          onCheckedChange={(v) => onUpdate(account.id, { enabled: v })}
+        />
+        <Button
+          size="sm"
+          variant="ghost"
+          className="h-7 px-2 text-gray-400 hover:text-white"
+          onClick={() => setEditing((v) => !v)}
+        >
+          {editing ? "Cancel" : "Edit"}
+        </Button>
+        <Button
+          size="sm"
+          variant="ghost"
+          className="h-7 px-2 text-red-500 hover:text-red-400"
+          onClick={() => onDelete(account.id)}
+        >
+          <Trash2 className="w-3 h-3" />
+        </Button>
+      </div>
+
+      {editing && (
+        <div className="space-y-2 pl-5">
+          <div className="relative">
+            <Input
+              type={showToken ? "text" : "password"}
+              className="bg-gray-700 border-gray-600 text-white text-xs pr-8"
+              placeholder="Discord user token"
+              value={token}
+              onChange={(e) => setToken(e.target.value)}
+            />
+            <button
+              type="button"
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500"
+              onClick={() => setShowToken((v) => !v)}
+            >
+              {showToken ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+            </button>
+          </div>
+          <Button
+            size="sm"
+            className="bg-blue-600 hover:bg-blue-500 h-7 text-xs"
+            onClick={save}
+          >
+            <Save className="w-3 h-3 mr-1" />
+            Save
+          </Button>
+        </div>
+      )}
+
+      <div className="flex gap-4 pl-5 text-xs text-gray-500">
+        <span>Balance: <span className="text-yellow-400">{account.balance.toLocaleString()}</span></span>
+        <span>Claimed: <span className="text-green-400">{account.totalClaimed.toLocaleString()}</span></span>
+        <span>Sent: <span className="text-blue-400">{account.totalTransferred.toLocaleString()}</span></span>
+      </div>
+    </div>
+  );
+}
+
+function AddAccountForm({ onAdd }: { onAdd: (label: string, token: string) => void }) {
+  const [label, setLabel] = useState("");
+  const [token, setToken] = useState("");
+  const [showToken, setShowToken] = useState(false);
+  const [open, setOpen] = useState(false);
+
+  const submit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!label || !token) return;
+    onAdd(label, token);
+    setLabel("");
+    setToken("");
+    setOpen(false);
+  };
+
+  if (!open) {
+    return (
+      <Button
+        size="sm"
+        variant="outline"
+        className="border-dashed border-gray-600 text-gray-400 hover:text-white w-full"
+        onClick={() => setOpen(true)}
+      >
+        <Plus className="w-3 h-3 mr-1" />
+        Add Account
+      </Button>
+    );
+  }
+
+  return (
+    <form onSubmit={submit} className="p-3 bg-gray-800 rounded-lg space-y-2 border border-dashed border-gray-600">
+      <p className="text-xs text-gray-400 font-medium">New Account</p>
+      <Input
+        className="bg-gray-700 border-gray-600 text-white text-sm"
+        placeholder="Label (e.g. Main, Alt 1)"
+        value={label}
+        onChange={(e) => setLabel(e.target.value)}
+      />
+      <div className="relative">
+        <Input
+          type={showToken ? "text" : "password"}
+          className="bg-gray-700 border-gray-600 text-white text-sm pr-8"
+          placeholder="Discord user token"
+          value={token}
+          onChange={(e) => setToken(e.target.value)}
+        />
+        <button
+          type="button"
+          className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500"
+          onClick={() => setShowToken((v) => !v)}
+        >
+          {showToken ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+        </button>
+      </div>
+      <div className="flex gap-2">
+        <Button type="submit" size="sm" className="bg-green-600 hover:bg-green-500 h-7 text-xs">
+          <Plus className="w-3 h-3 mr-1" />
+          Add
+        </Button>
+        <Button
+          type="button"
+          size="sm"
+          variant="ghost"
+          className="h-7 text-xs text-gray-400"
+          onClick={() => setOpen(false)}
+        >
+          Cancel
+        </Button>
+      </div>
+    </form>
+  );
 }
 
 export default function ConfigPanel() {
   const qc = useQueryClient();
-  const { data: config, isLoading } = useQuery<Config>({
-    queryKey: ["bot-config"],
-    queryFn: () => apiFetch("/api/bot/config"),
-  });
-
-  const [form, setForm] = useState<Partial<Config>>({});
-  const [showToken, setShowToken] = useState(false);
   const [saved, setSaved] = useState(false);
 
-  useEffect(() => {
-    if (config && Object.keys(form).length === 0) {
-      setForm(config);
-    }
-  }, [config]);
+  const { data: settings, isLoading: settingsLoading } = useQuery<BotSettings>({
+    queryKey: ["bot-settings"],
+    queryFn: () => apiFetch("/api/bot/settings"),
+  });
 
-  const saveMut = useMutation({
-    mutationFn: (data: Partial<Config>) =>
-      apiFetch("/api/bot/config", {
+  const { data: accountsData, isLoading: accountsLoading } = useQuery({
+    queryKey: ["accounts"],
+    queryFn: () => apiFetch("/api/accounts"),
+    refetchInterval: 5000,
+  });
+
+  const [form, setForm] = useState<Partial<BotSettings>>({});
+
+  useEffect(() => {
+    if (settings && Object.keys(form).length === 0) {
+      setForm(settings);
+    }
+  }, [settings]);
+
+  const saveSettingsMut = useMutation({
+    mutationFn: (data: Partial<BotSettings>) =>
+      apiFetch("/api/bot/settings", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
       }),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["bot-config"] });
+      qc.invalidateQueries({ queryKey: ["bot-settings"] });
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
     },
   });
 
-  const set = (key: string, value: any) =>
-    setForm((f) => ({ ...f, [key]: value }));
+  const updateAccountMut = useMutation({
+    mutationFn: ({ id, data }: { id: number; data: Partial<Account> }) =>
+      apiFetch(`/api/accounts/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["accounts"] }),
+  });
+
+  const deleteAccountMut = useMutation({
+    mutationFn: (id: number) =>
+      apiFetch(`/api/accounts/${id}`, { method: "DELETE" }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["accounts"] }),
+  });
+
+  const addAccountMut = useMutation({
+    mutationFn: ({ label, token }: { label: string; token: string }) =>
+      apiFetch("/api/accounts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ label, token }),
+      }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["accounts"] }),
+  });
+
+  const set = (key: string, value: any) => setForm((f) => ({ ...f, [key]: value }));
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    saveMut.mutate(form);
+    saveSettingsMut.mutate(form);
   };
 
-  if (isLoading) {
-    return (
-      <div className="text-center text-gray-500 py-8">Loading config...</div>
-    );
+  const accounts: Account[] = accountsData?.accounts ?? [];
+
+  if (settingsLoading) {
+    return <div className="text-center text-gray-500 py-8"><RefreshCw className="w-4 h-4 animate-spin mx-auto" /></div>;
   }
 
   return (
-    <form onSubmit={handleSubmit}>
-      <div className="grid md:grid-cols-2 gap-4">
-        <Card className="bg-gray-900 border-gray-700">
-          <CardHeader>
-            <CardTitle className="text-white text-base">Discord Settings</CardTitle>
-            <CardDescription className="text-gray-500 text-xs">
-              Your user account credentials and target server/channel.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div>
-              <Label className="text-gray-300 text-xs mb-1 block">
-                Discord User Token{" "}
-                <span className="text-red-400">*</span>
-              </Label>
-              <div className="relative">
-                <Input
-                  type={showToken ? "text" : "password"}
-                  className="bg-gray-800 border-gray-600 text-white pr-10"
-                  placeholder="Your Discord user token"
-                  value={form.discordToken ?? ""}
-                  onChange={(e) => set("discordToken", e.target.value)}
-                />
-                <button
-                  type="button"
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300"
-                  onClick={() => setShowToken((v) => !v)}
-                >
-                  {showToken ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                </button>
-              </div>
-              <p className="text-xs text-gray-600 mt-1">
-                Found in DevTools → Network → Authorization header
-              </p>
-            </div>
-
-            <div>
-              <Label className="text-gray-300 text-xs mb-1 block">
-                Server ID <span className="text-red-400">*</span>
-              </Label>
-              <Input
-                className="bg-gray-800 border-gray-600 text-white"
-                placeholder="e.g. 123456789012345678"
-                value={form.serverId ?? ""}
-                onChange={(e) => set("serverId", e.target.value)}
-              />
-              <p className="text-xs text-gray-600 mt-1">
-                Right-click the server → Copy ID (enable Developer Mode first)
-              </p>
-            </div>
-
-            <div>
-              <Label className="text-gray-300 text-xs mb-1 block">
-                Channel ID <span className="text-red-400">*</span>
-              </Label>
-              <Input
-                className="bg-gray-800 border-gray-600 text-white"
-                placeholder="e.g. 987654321098765432"
-                value={form.channelId ?? ""}
-                onChange={(e) => set("channelId", e.target.value)}
-              />
-              <p className="text-xs text-gray-600 mt-1">
-                Right-click the blackjack channel → Copy ID
-              </p>
-            </div>
-
-            <div>
-              <Label className="text-gray-300 text-xs mb-1 block">
-                Kaos Bot User ID
-              </Label>
-              <Input
-                className="bg-gray-800 border-gray-600 text-white"
-                placeholder="Kaos Bot's Discord user ID"
-                value={form.kaosUserId ?? ""}
-                onChange={(e) => set("kaosUserId", e.target.value)}
-              />
-              <p className="text-xs text-gray-600 mt-1">
-                Right-click Kaos Bot → Copy ID. Leave blank to accept all bot messages.
-              </p>
-            </div>
-
-            <div>
-              <Label className="text-gray-300 text-xs mb-1 block">
-                Command Prefix
-              </Label>
-              <Input
-                className="bg-gray-800 border-gray-600 text-white w-24"
-                placeholder="$"
-                value={form.kaosPrefix ?? "$"}
-                onChange={(e) => set("kaosPrefix", e.target.value)}
-              />
-              <p className="text-xs text-gray-600 mt-1">
-                Prefix for Kaos Bot commands (e.g. $ → $blackjack, $hit, $stand)
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-gray-900 border-gray-700">
-          <CardHeader>
-            <CardTitle className="text-white text-base">Game Settings</CardTitle>
-            <CardDescription className="text-gray-500 text-xs">
-              Betting, strategy, and safety limits.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div>
-              <Label className="text-gray-300 text-xs mb-1 block">Bet Amount (scrap)</Label>
-              <Input
-                type="number"
-                min={1}
-                className="bg-gray-800 border-gray-600 text-white"
-                value={form.betAmount ?? 100}
-                onChange={(e) => set("betAmount", Number(e.target.value))}
-              />
-            </div>
-
-            <div>
-              <Label className="text-gray-300 text-xs mb-1 block">Strategy</Label>
-              <Select
-                value={form.strategy ?? "basic"}
-                onValueChange={(v) => set("strategy", v)}
-              >
-                <SelectTrigger className="bg-gray-800 border-gray-600 text-white">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className="bg-gray-800 border-gray-600">
-                  <SelectItem value="basic">Basic Strategy</SelectItem>
-                  <SelectItem value="aggressive">Aggressive (more doubles/splits)</SelectItem>
-                  <SelectItem value="conservative">Conservative (fewer risks)</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
+    <div className="space-y-6">
+      <form onSubmit={handleSubmit}>
+        <div className="grid md:grid-cols-2 gap-4">
+          <Card className="bg-gray-900 border-gray-700">
+            <CardHeader>
+              <CardTitle className="text-white text-base">Bot Settings</CardTitle>
+              <CardDescription className="text-gray-500 text-xs">
+                Configure which Discord server and channel to monitor for nukes.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
               <div>
                 <Label className="text-gray-300 text-xs mb-1 block">
-                  Delay Min (ms)
+                  Server ID <span className="text-red-400">*</span>
                 </Label>
                 <Input
-                  type="number"
-                  min={500}
                   className="bg-gray-800 border-gray-600 text-white"
-                  value={form.delayMin ?? 2000}
-                  onChange={(e) => set("delayMin", Number(e.target.value))}
+                  placeholder="e.g. 123456789012345678"
+                  value={form.serverId ?? ""}
+                  onChange={(e) => set("serverId", e.target.value)}
                 />
+                <p className="text-xs text-gray-600 mt-1">Right-click server → Copy Server ID</p>
               </div>
+
               <div>
                 <Label className="text-gray-300 text-xs mb-1 block">
-                  Delay Max (ms)
+                  Channel ID <span className="text-red-400">*</span>
                 </Label>
                 <Input
-                  type="number"
-                  min={1000}
                   className="bg-gray-800 border-gray-600 text-white"
-                  value={form.delayMax ?? 5000}
-                  onChange={(e) => set("delayMax", Number(e.target.value))}
+                  placeholder="e.g. 987654321098765432"
+                  value={form.channelId ?? ""}
+                  onChange={(e) => set("channelId", e.target.value)}
                 />
+                <p className="text-xs text-gray-600 mt-1">Right-click the nuke channel → Copy Channel ID</p>
               </div>
-            </div>
-            <p className="text-xs text-gray-600">
-              Random delay between hands to appear more human-like.
-            </p>
 
-            <div className="border-t border-gray-700 pt-3">
-              <p className="text-xs text-gray-400 font-medium mb-3">
-                Safety Limits (optional)
-              </p>
-              <div className="space-y-3">
+              <div>
+                <Label className="text-gray-300 text-xs mb-1 block">Clover Bot User ID</Label>
+                <Input
+                  className="bg-gray-800 border-gray-600 text-white"
+                  placeholder="KA0SBOT's user ID"
+                  value={form.cloverId ?? ""}
+                  onChange={(e) => set("cloverId", e.target.value)}
+                />
+                <p className="text-xs text-gray-600 mt-1">Right-click KA0SBOT → Copy ID. Filters messages to bot only.</p>
+              </div>
+
+              <div>
+                <Label className="text-gray-300 text-xs mb-1 block">Clover Bot Prefix</Label>
+                <Input
+                  className="bg-gray-800 border-gray-600 text-white w-24"
+                  placeholder="%"
+                  value={form.cloverPrefix ?? "%"}
+                  onChange={(e) => set("cloverPrefix", e.target.value)}
+                />
+                <p className="text-xs text-gray-600 mt-1">Prefix for Clover commands (default: %)</p>
+              </div>
+
+              <div>
+                <Label className="text-gray-300 text-xs mb-1 block">Nuke Keywords</Label>
+                <Input
+                  className="bg-gray-800 border-gray-600 text-white"
+                  placeholder="nuclear fallout,nuke,bomb"
+                  value={form.nukeKeywords ?? ""}
+                  onChange={(e) => set("nukeKeywords", e.target.value)}
+                />
+                <p className="text-xs text-gray-600 mt-1">Comma-separated keywords to detect nuke events</p>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-gray-900 border-gray-700">
+            <CardHeader>
+              <CardTitle className="text-white text-base">Transfer Settings</CardTitle>
+              <CardDescription className="text-gray-500 text-xs">
+                Configure how scrap is transferred between accounts.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <Label className="text-gray-300 text-xs mb-1 block">Transfer Command</Label>
+                <Input
+                  className="bg-gray-800 border-gray-600 text-white"
+                  placeholder="/transfer"
+                  value={form.giveCommand ?? "/transfer"}
+                  onChange={(e) => set("giveCommand", e.target.value)}
+                />
+                <p className="text-xs text-gray-600 mt-1">
+                  Base command — will send: <span className="text-gray-400 font-mono">{form.giveCommand ?? "/transfer"} recipient:@USER amount: AMOUNT server: N</span>
+                </p>
+              </div>
+
+              <div>
+                <Label className="text-gray-300 text-xs mb-1 block">
+                  Transfer Server
+                </Label>
+                <div className="flex gap-2">
+                  {[1, 2, 3].map((n) => (
+                    <button
+                      key={n}
+                      type="button"
+                      className={`px-4 py-2 rounded text-sm font-medium border transition-colors ${
+                        (form.transferServer ?? 1) === n
+                          ? "bg-blue-600 border-blue-500 text-white"
+                          : "bg-gray-800 border-gray-600 text-gray-400 hover:border-gray-400"
+                      }`}
+                      onClick={() => set("transferServer", n)}
+                    >
+                      Server {n}
+                    </button>
+                  ))}
+                </div>
+                <p className="text-xs text-gray-600 mt-1">Which server to receive clover points on when claiming nukes</p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <Label className="text-gray-300 text-xs mb-1 block">
-                    Max Games per Session
-                  </Label>
+                  <Label className="text-gray-300 text-xs mb-1 block">Claim Delay Min (ms)</Label>
                   <Input
                     type="number"
-                    min={1}
+                    min={0}
                     className="bg-gray-800 border-gray-600 text-white"
-                    placeholder="Unlimited"
-                    value={form.maxGames ?? ""}
-                    onChange={(e) =>
-                      set("maxGames", e.target.value ? Number(e.target.value) : null)
-                    }
+                    value={form.claimDelayMin ?? 300}
+                    onChange={(e) => set("claimDelayMin", Number(e.target.value))}
                   />
                 </div>
                 <div>
-                  <Label className="text-gray-300 text-xs mb-1 block">
-                    Stop-Loss (scrap)
-                  </Label>
+                  <Label className="text-gray-300 text-xs mb-1 block">Claim Delay Max (ms)</Label>
                   <Input
                     type="number"
-                    min={1}
+                    min={0}
                     className="bg-gray-800 border-gray-600 text-white"
-                    placeholder="No limit"
-                    value={form.stopOnLoss ?? ""}
-                    onChange={(e) =>
-                      set("stopOnLoss", e.target.value ? Number(e.target.value) : null)
-                    }
+                    value={form.claimDelayMax ?? 1200}
+                    onChange={(e) => set("claimDelayMax", Number(e.target.value))}
                   />
-                  <p className="text-xs text-gray-600 mt-1">Stop if losses exceed this amount</p>
-                </div>
-                <div>
-                  <Label className="text-gray-300 text-xs mb-1 block">
-                    Stop-Win (scrap)
-                  </Label>
-                  <Input
-                    type="number"
-                    min={1}
-                    className="bg-gray-800 border-gray-600 text-white"
-                    placeholder="No limit"
-                    value={form.stopOnWin ?? ""}
-                    onChange={(e) =>
-                      set("stopOnWin", e.target.value ? Number(e.target.value) : null)
-                    }
-                  />
-                  <p className="text-xs text-gray-600 mt-1">Stop once this profit is reached</p>
                 </div>
               </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+              <p className="text-xs text-gray-600">Random delay before each account claims a nuke (human-like behavior)</p>
 
-      <div className="mt-4 flex items-center gap-3">
-        <Button
-          type="submit"
-          className="bg-blue-600 hover:bg-blue-500"
-          disabled={saveMut.isPending}
-        >
-          <Save className="w-4 h-4 mr-1" />
-          {saveMut.isPending ? "Saving..." : saved ? "Saved!" : "Save Config"}
-        </Button>
-        {saveMut.error && (
-          <span className="text-sm text-red-400">
-            {(saveMut.error as Error).message}
-          </span>
-        )}
-      </div>
+              <div className="border-t border-gray-700 pt-4">
+                <p className="text-xs text-yellow-300/80 bg-yellow-900/20 border border-yellow-700/40 rounded p-3 flex gap-2">
+                  <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5 text-yellow-500" />
+                  Self-bots violate Discord's Terms of Service. Use at your own risk.
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
 
-      <div className="mt-4 p-3 bg-yellow-900/20 border border-yellow-700/40 rounded-lg flex gap-2">
-        <AlertTriangle className="w-4 h-4 text-yellow-500 shrink-0 mt-0.5" />
-        <p className="text-xs text-yellow-300/80">
-          Self-bots (user account automation) violate Discord's Terms of Service. Use at
-          your own risk. This tool is provided for educational purposes only.
-        </p>
-      </div>
-    </form>
+        <div className="mt-4 flex items-center gap-3">
+          <Button
+            type="submit"
+            className="bg-blue-600 hover:bg-blue-500"
+            disabled={saveSettingsMut.isPending}
+          >
+            <Save className="w-4 h-4 mr-1" />
+            {saveSettingsMut.isPending ? "Saving..." : saved ? "✓ Saved!" : "Save Settings"}
+          </Button>
+          {saveSettingsMut.error && (
+            <span className="text-sm text-red-400">{(saveSettingsMut.error as Error).message}</span>
+          )}
+        </div>
+      </form>
+
+      <Card className="bg-gray-900 border-gray-700">
+        <CardHeader>
+          <CardTitle className="text-white text-base">Accounts</CardTitle>
+          <CardDescription className="text-gray-500 text-xs">
+            Add Discord accounts (user tokens) to claim nukes from. Each account claims independently.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          {accountsLoading ? (
+            <div className="text-gray-500 text-sm py-2 flex gap-2"><RefreshCw className="w-4 h-4 animate-spin" /> Loading...</div>
+          ) : (
+            accounts.map((acc) => (
+              <AccountRow
+                key={acc.id}
+                account={acc}
+                onUpdate={(id, data) => updateAccountMut.mutate({ id, data })}
+                onDelete={(id) => deleteAccountMut.mutate(id)}
+              />
+            ))
+          )}
+          <AddAccountForm
+            onAdd={(label, token) => addAccountMut.mutate({ label, token })}
+          />
+        </CardContent>
+      </Card>
+    </div>
   );
 }

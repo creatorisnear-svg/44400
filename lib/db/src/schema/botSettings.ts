@@ -8,10 +8,11 @@ export const botSettingsTable = pgTable("bot_settings", {
   channelId: text("channel_id").notNull().default(""),
   cloverId: text("clover_id").notNull().default(""),
   cloverPrefix: text("clover_prefix").notNull().default("%"),
-  nukeKeywords: text("nuke_keywords").notNull().default("nuke,bomb,explosion"),
-  giveCommand: text("give_command").notNull().default("%give"),
+  nukeKeywords: text("nuke_keywords").notNull().default("nuclear fallout,nuke,bomb,explosion"),
+  giveCommand: text("give_command").notNull().default("/transfer"),
   claimDelayMin: integer("claim_delay_min").notNull().default(300),
   claimDelayMax: integer("claim_delay_max").notNull().default(1200),
+  transferServer: integer("transfer_server").notNull().default(1),
   enabled: boolean("enabled").notNull().default(false),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });

@@ -425,7 +425,8 @@ class NukeBot {
             throw new Error("Channel not accessible");
           }
 
-          const cmd = `${settings.giveCommand} ${toUsername} ${sendAmount}`;
+          const server = (settings as any).transferServer ?? 1;
+          const cmd = `${settings.giveCommand} recipient:@${toUsername} amount: ${sendAmount} server: ${server}`;
           await (channel as any).send(cmd);
 
           botLog.info(`[${runtime.label}] sent: ${cmd}`, runtime.accountId);
