@@ -790,33 +790,64 @@ class NukeBot {
             _resolveReply(v);
           };
 
-          // CRITICAL: start listening for KA0SBOT's reply BEFORE sending the interaction
+          // CRITICAL: start listening for KA0SBOT's reply BEFORE sending the interaction.
+          // We listen on the raw WebSocket packet (not messageCreate) because selfbot-v13
+          // sometimes fails to construct the Message object (minValues error), which prevents
+          // the messageCreate event from ever being emitted — the raw event always fires.
           const replyPromise = new Promise<{ amount: number; alreadyClaimed: boolean }>((resolve) => {
             _resolveReply = resolve;
-            const timer = setTimeout(() => {
+
+            const cleanup = () => {
               client.off("messageCreate", replyHandler);
+              client.off("raw", rawHandler);
+            };
+
+            const timer = setTimeout(() => {
+              cleanup();
               doResolve({ amount: 0, alreadyClaimed: false });
             }, 12000);
 
+            const checkText = (fullText: string) => {
+              if (/already\s+claimed/i.test(fullText)) {
+                clearTimeout(timer); cleanup();
+                doResolve({ amount: 0, alreadyClaimed: true });
+                return true;
+              }
+              // Don't parse the original nuke embed ("Nuke Reward: X") as a claim amount
+              if (/nuke\s+reward/i.test(fullText)) return false;
+              const parsed = parseScrapFromText(fullText);
+              if (parsed > 0) {
+                clearTimeout(timer); cleanup();
+                doResolve({ amount: parsed, alreadyClaimed: false });
+                return true;
+              }
+              return false;
+            };
+
+            // Raw WebSocket fallback — fires even when Message construction fails
+            function rawHandler(packet: any) {
+              if (packet.t !== "MESSAGE_CREATE" && packet.t !== "MESSAGE_UPDATE") return;
+              const d = packet.d;
+              if (!d) return;
+              if (settings.cloverId && d.author?.id !== settings.cloverId) return;
+              const text = [
+                d.content ?? "",
+                ...(d.embeds ?? []).map((e: any) =>
+                  `${e.title ?? ""} ${e.description ?? ""} ${(e.fields ?? []).map((f: any) => `${f.name} ${f.value}`).join(" ")}`
+                ),
+              ].join(" ");
+              if (text.trim()) checkText(text);
+            }
+
+            // messageCreate fires when Message construction succeeds (simpler nukes)
             function replyHandler(m: any) {
               if (settings.cloverId && m.author.id !== settings.cloverId) return;
               const mentioned = !m.mentions?.users?.size || m.mentions.users.has(client.user?.id ?? "");
               if (!mentioned) return;
-              const fullText = extractText(m);
-              if (/already\s+claimed/i.test(fullText)) {
-                clearTimeout(timer);
-                client.off("messageCreate", replyHandler);
-                doResolve({ amount: 0, alreadyClaimed: true });
-                return;
-              }
-              const parsed = parseScrapFromText(fullText);
-              if (parsed > 0) {
-                clearTimeout(timer);
-                client.off("messageCreate", replyHandler);
-                doResolve({ amount: parsed, alreadyClaimed: false });
-              }
+              checkText(extractText(m));
             }
 
+            client.on("raw", rawHandler);
             client.on("messageCreate", replyHandler);
           });
 
