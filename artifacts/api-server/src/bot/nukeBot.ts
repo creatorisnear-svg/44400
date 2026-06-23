@@ -1283,26 +1283,20 @@ class NukeBot {
 
         botLog.info(`[${runtime.label}] 💰 Sending /balance via sendSlash in channel ${channel.id}...`, runtime.accountId);
 
-        // The indicator message ("zoktu used /balance") fires first and is what sendSlash
-        // resolves with — it has empty content. The ACTUAL ephemeral reply from KA0SBOT
-        // arrives separately as a raw WebSocket packet and never fires messageCreate.
-        // Fix: register the raw listener BEFORE sending so we never miss the real reply.
+        // sendSlash resolves with the empty interaction indicator ("zoktu used /balance"),
+        // not the actual ephemeral reply. The real reply arrives via a raw WebSocket packet.
+        // Pattern: define cleanup INSIDE the Promise so it can reference the handler (same
+        // approach as claimNukeForRuntime — avoids the out-of-scope ReferenceError).
         let _resolveBalance!: (v: number | null) => void;
         let _balanceResolved = false;
         const doResolveBalance = (v: number | null) => {
           if (_balanceResolved) return;
           _balanceResolved = true;
-          client.off("raw", balanceRawHandler);
           _resolveBalance(v);
         };
 
         const balancePromise = new Promise<number | null>((resolve) => {
           _resolveBalance = resolve;
-
-          const timer = setTimeout(() => {
-            botLog.warn(`[${runtime.label}] 💰 Balance reply timed out after 10s`, runtime.accountId);
-            doResolveBalance(null);
-          }, 10_000);
 
           const BALANCE_RAW_TYPES = new Set([
             "MESSAGE_CREATE",
@@ -1312,13 +1306,24 @@ class NukeBot {
             "INTERACTION_APPLICATION_COMMAND",
           ]);
 
-          function balanceRawHandler(packet: any) {
+          // cleanup lives here so it can close over balanceRawHandler
+          let balanceRawHandler: (packet: any) => void;
+          const cleanup = () => client.off("raw", balanceRawHandler);
+
+          const timer = setTimeout(() => {
+            cleanup();
+            botLog.warn(`[${runtime.label}] 💰 Balance reply timed out after 10s`, runtime.accountId);
+            doResolveBalance(null);
+          }, 10_000);
+
+          balanceRawHandler = (packet: any) => {
             if (!BALANCE_RAW_TYPES.has(packet.t)) return;
             const d = packet.d ?? packet;
             if (!d) return;
-            // Must be from KA0SBOT
+            // Filter: must originate from KA0SBOT
             const authorId = d.author?.id ?? d.member?.user?.id ?? d.user?.id;
             if (cloverId && authorId && authorId !== cloverId) return;
+            // Check all nested message shapes
             const msgData = d.message ?? d;
             const text = extractAllText(msgData);
             if (!text.trim()) return;
@@ -1326,35 +1331,35 @@ class NukeBot {
             const parsed = parseBalanceFromText(text);
             if (parsed !== null) {
               clearTimeout(timer);
+              cleanup();
               doResolveBalance(parsed);
             }
-          }
+          };
 
           client.on("raw", balanceRawHandler);
         });
 
-        // Fire the slash command — ignore its return value (it's the empty indicator message).
-        // The real reply will arrive via balanceRawHandler above.
+        // Fire the slash command. Ignore its direct return (it's the indicator message).
+        // The real reply arrives via balanceRawHandler. We still check the return as a
+        // fast-path in case the library version resolves with actual content.
         try {
           const resp = await (channel as any).sendSlash(cloverId, "balance");
-          // Fast-path: occasionally sendSlash DOES return the real reply (library version dependent).
-          // Check candidates immediately so we don't wait unnecessarily.
-          const candidates = [resp, resp?.message, resp?.data, resp?.interaction].filter(Boolean);
-          for (const c of candidates) {
-            const t = extractAllText(c);
-            const direct = parseBalanceFromText(t);
-            if (direct !== null) {
-              botLog.info(`[${runtime.label}] 💰 Got balance from sendSlash direct return: ${direct.toLocaleString()}`, runtime.accountId);
-              doResolveBalance(direct);
-              break;
+          if (!_balanceResolved) {
+            const candidates = [resp, resp?.message, resp?.data, resp?.interaction].filter(Boolean);
+            for (const c of candidates) {
+              const direct = parseBalanceFromText(extractAllText(c));
+              if (direct !== null) {
+                botLog.info(`[${runtime.label}] 💰 Got balance from sendSlash direct return: ${direct.toLocaleString()}`, runtime.accountId);
+                doResolveBalance(direct);
+                break;
+              }
             }
           }
-          // Also try raw JSON as last fast-path resort
           if (!_balanceResolved && resp) {
             try {
               const direct = parseBalanceFromText(JSON.stringify(resp));
               if (direct !== null) {
-                botLog.info(`[${runtime.label}] 💰 Got balance from sendSlash JSON dump: ${direct.toLocaleString()}`, runtime.accountId);
+                botLog.info(`[${runtime.label}] 💰 Got balance from JSON dump: ${direct.toLocaleString()}`, runtime.accountId);
                 doResolveBalance(direct);
               }
             } catch {}
