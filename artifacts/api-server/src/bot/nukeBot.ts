@@ -1296,6 +1296,23 @@ class NukeBot {
     return [...this.runtimes.values()].filter((r) => r.status === "connected" && r.client).length;
   }
 
+  /** Trigger join+link for a single account on demand (Relink button). */
+  async triggerJoinAndLinkForAccount(accountId: number): Promise<void> {
+    const runtime = this.runtimes.get(accountId);
+    if (!runtime || runtime.status !== "connected" || !runtime.client) {
+      throw new Error("Account is not connected");
+    }
+    const [settings] = await db.select().from(botSettingsTable).limit(1);
+    if (!settings) throw new Error("Bot settings not configured");
+    const [account] = await db
+      .select()
+      .from(accountsTable)
+      .where(eq(accountsTable.id, accountId))
+      .limit(1);
+    if (!account) throw new Error("Account not found");
+    await this.joinAndLinkServers(runtime, account, settings);
+  }
+
   /** Called after settings are saved — joins/links any newly added servers on all live accounts. */
   async triggerJoinAndLink(): Promise<void> {
     const [settings] = await db.select().from(botSettingsTable).limit(1);
@@ -1317,7 +1334,7 @@ class NukeBot {
           account.id,
         );
       });
-      await delay(500); // small stagger between accounts
+      await delay(60_000); // 1 minute between accounts
     }
   }
 

@@ -77,6 +77,16 @@ router.delete("/accounts/:id", async (req, res) => {
   return res.json({ ok: true });
 });
 
+router.post("/accounts/:id/relink", async (req, res) => {
+  const id = Number(req.params.id);
+  try {
+    await nukeBot.triggerJoinAndLinkForAccount(id);
+    return res.json({ ok: true });
+  } catch (err) {
+    return res.status(400).json({ error: (err as Error).message });
+  }
+});
+
 router.put("/accounts/:id", async (req, res) => {
   const id = Number(req.params.id);
   const { label, token, enabled, ign } = req.body;

@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { Save, AlertTriangle, RefreshCw, ShieldCheck, XCircle, Plus, Trash2 } from "lucide-react";
+import { Save, AlertTriangle, RefreshCw, ShieldCheck, XCircle, Plus, Trash2, Link } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 
 interface BotSettings {
@@ -60,6 +60,11 @@ function AccountRow({ account, onToggle, onDelete }: {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["accounts"] }),
   });
 
+  const relinkMut = useMutation({
+    mutationFn: () =>
+      apiFetch(`/api/accounts/${account.id}/relink`, { method: "POST" }),
+  });
+
   function saveIgn() {
     const val = ign.trim();
     if (val !== (account.ign ?? "")) ignMut.mutate(val);
@@ -86,6 +91,16 @@ function AccountRow({ account, onToggle, onDelete }: {
           checked={account.enabled}
           onCheckedChange={(v) => onToggle(account.id, v)}
         />
+        <button
+          onClick={() => relinkMut.mutate()}
+          disabled={!account.connected || relinkMut.isPending}
+          className="text-gray-600 hover:text-indigo-400 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+          title={account.connected ? "Relink this account now" : "Account must be connected to relink"}
+        >
+          {relinkMut.isPending
+            ? <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+            : <Link className="w-3.5 h-3.5" />}
+        </button>
         <button
           onClick={() => {
             if (confirm(`Remove "${account.label}"? This cannot be undone.`)) onDelete(account.id);
