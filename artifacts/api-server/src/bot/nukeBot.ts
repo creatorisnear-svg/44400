@@ -1037,9 +1037,10 @@ class NukeBot {
     }
 
     const now = Math.floor(Date.now() / 1000);
+    const cutoff48h = now - 48 * 60 * 60; // 48 hours ago
 
     // Only messages from the clover bot that match nuke keywords, still have an active (non-disabled)
-    // select menu, AND haven't expired (parse <t:UNIX:R> from the embed text)
+    // component, are within the last 48 hours, AND haven't expired yet
     const nukeMsgs = [...messages.values()].filter((msg: any) => {
       if (settings.cloverId && msg.author.id !== settings.cloverId) return false;
       const embeds = msg.embeds ?? [];
@@ -1052,6 +1053,12 @@ class NukeBot {
         (c: any) => !c.disabled && (c.type === 3 || c.type === "STRING_SELECT" || c.type === "SELECT_MENU" || c.type === 2 || c.type === "BUTTON"),
       );
       if (!hasActive) return false;
+
+      // Skip nukes older than 48 hours (based on message creation time)
+      const msgTimeSec = msg.createdTimestamp
+        ? Math.floor(msg.createdTimestamp / 1000)
+        : (msg.createdAt instanceof Date ? Math.floor(msg.createdAt.getTime() / 1000) : now);
+      if (msgTimeSec < cutoff48h) return false;
 
       // Parse expiry from Discord timestamp: <t:1234567890:R>
       const fullText = content + " " + embeds.map((e: any) =>
