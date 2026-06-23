@@ -1055,77 +1055,108 @@ class NukeBot {
     if (runtimes.length === 0) throw new Error("No connected accounts. Start the bot first.");
 
     const transferChannelId = (settings as any).transferChannelId || settings.channelId;
-    const balanceCmd = "/balance";
+    const cloverId = settings.cloverId;
 
     botLog.info(`💰 Refreshing balances for ${runtimes.length} account(s)...`);
 
-    const TEN_MINUTES = 10 * 60 * 1000;
-
-    const results = await Promise.all(
-      runtimes.map(async (runtime, idx) => {
-        if (idx > 0) await delay(TEN_MINUTES * idx);
-
-        try {
-          const channel = runtime.client!.channels.cache.get(transferChannelId);
-          if (!channel || !(channel as any).isText()) {
-            throw new Error(`Channel ${transferChannelId} not accessible`);
-          }
-
-          await (channel as any).send(balanceCmd);
-          await delay(3000);
-
-          const recent = await (channel as any).messages.fetch({ limit: 10 }).catch(() => null);
-          if (!recent) throw new Error("Could not fetch messages");
-
-          let parsedBalance: number | null = null;
-          const cloverId = settings.cloverId;
-
-          for (const [, msg] of recent) {
-            if (cloverId && msg.author.id !== cloverId) continue;
-            const fullText = [
-              msg.content,
-              ...msg.embeds.map((e: any) => `${e.title ?? ""} ${e.description ?? ""} ${(e.fields ?? []).map((f: any) => `${f.name} ${f.value}`).join(" ")}`),
-            ].join(" ");
-
-            const patterns = [
-              /balance[:\s]+(\d[\d,]*)/i,
-              /wallet[:\s]+(\d[\d,]*)/i,
-              /you\s+have\s+(\d[\d,]*)/i,
-              /(\d[\d,]*)\s+clover/i,
-              /(\d[\d,]*)\s+scrap/i,
-              /(\d[\d,]*)\s+points?/i,
-              /\*\*(\d[\d,]*)\*\*/,
-              /`(\d[\d,]*)`/,
-            ];
-
-            for (const p of patterns) {
-              const m = fullText.match(p);
-              if (m) {
-                const val = parseInt(m[1].replace(/,/g, ""), 10);
-                if (!isNaN(val)) { parsedBalance = val; break; }
-              }
-            }
-            if (parsedBalance !== null) break;
-          }
-
-          if (parsedBalance !== null) {
-            await db.update(accountsTable).set({
-              balance: parsedBalance,
-              updatedAt: new Date(),
-            }).where(eq(accountsTable.id, runtime.accountId)).catch(() => {});
-            botLog.info(`[${runtime.label}] 💰 Balance updated: ${parsedBalance.toLocaleString()}`, runtime.accountId);
-          } else {
-            botLog.warn(`[${runtime.label}] Could not parse balance from bot reply`, runtime.accountId);
-          }
-
-          return { accountId: runtime.accountId, label: runtime.label, balance: parsedBalance };
-        } catch (err) {
-          const errMsg = (err as Error).message;
-          botLog.error(`[${runtime.label}] Balance refresh failed: ${errMsg}`, runtime.accountId);
-          return { accountId: runtime.accountId, label: runtime.label, balance: null, error: errMsg };
+    const parseBalanceFromText = (text: string): number | null => {
+      const patterns = [
+        /(\d[\d,]*)\s*clover\s*points?/i,
+        /clover\s*points?[:\s]+(\d[\d,]*)/i,
+        /balance[:\s]+(\d[\d,]*)/i,
+        /wallet[:\s]+(\d[\d,]*)/i,
+        /you\s+have\s+(\d[\d,]*)/i,
+        /(\d[\d,]*)\s+clover/i,
+        /(\d[\d,]*)\s+scrap/i,
+        /\*\*(\d[\d,]*)\*\*/,
+        /`(\d[\d,]*)`/,
+        /(\d[\d,]*)\s+points?/i,
+      ];
+      for (const p of patterns) {
+        const m = text.match(p);
+        if (m) {
+          const val = parseInt(m[1].replace(/,/g, ""), 10);
+          if (!isNaN(val) && val >= 0) return val;
         }
-      }),
-    );
+      }
+      return null;
+    };
+
+    const extractBalanceFromMsg = (msg: any): number | null => {
+      if (!msg) return null;
+      const fullText = [
+        msg.content ?? "",
+        ...(msg.embeds ?? []).map((e: any) =>
+          `${e.title ?? ""} ${e.description ?? ""} ${(e.fields ?? []).map((f: any) => `${f.name} ${f.value}`).join(" ")}`
+        ),
+      ].join(" ");
+      return parseBalanceFromText(fullText);
+    };
+
+    const results: { accountId: number; label: string; balance: number | null; error?: string }[] = [];
+
+    for (let idx = 0; idx < runtimes.length; idx++) {
+      const runtime = runtimes[idx];
+      // Stagger requests — 5 seconds between accounts to avoid spam detection
+      if (idx > 0) await delay(5000);
+
+      try {
+        const channel = runtime.client!.channels.cache.get(transferChannelId);
+        if (!channel || !(channel as any).isText()) {
+          throw new Error(`Channel ${transferChannelId} not accessible`);
+        }
+
+        botLog.info(`[${runtime.label}] 💰 Sending /balance...`, runtime.accountId);
+
+        // Use sendSlash — the correct way to invoke slash commands via selfbot-v13.
+        // It returns a Promise that resolves to the ephemeral interaction response.
+        let parsedBalance: number | null = null;
+        try {
+          const resp = await (channel as any).sendSlash(cloverId, "balance");
+          parsedBalance = extractBalanceFromMsg(resp);
+          if (parsedBalance === null) {
+            // Log the raw response so we can tune the parser
+            const rawText = [
+              resp?.content ?? "",
+              ...(resp?.embeds ?? []).map((e: any) => `${e.title ?? ""} ${e.description ?? ""}`),
+            ].join(" ").trim();
+            botLog.warn(`[${runtime.label}] /balance replied but couldn't parse amount. Raw: "${rawText.slice(0, 200)}"`, runtime.accountId);
+          }
+        } catch (slashErr) {
+          // sendSlash failed (e.g. command not found in this channel) — try text fallback
+          botLog.warn(`[${runtime.label}] sendSlash failed (${(slashErr as Error).message}), trying %balance text...`, runtime.accountId);
+          const prefix = settings.cloverPrefix || "%";
+          await (channel as any).send(`${prefix}balance`);
+          await delay(3500);
+
+          // Read recent messages to find KA0SBOT's reply
+          const recent = await (channel as any).messages.fetch({ limit: 10 }).catch(() => null);
+          if (recent) {
+            for (const [, msg] of recent) {
+              if (cloverId && msg.author.id !== cloverId) continue;
+              parsedBalance = extractBalanceFromMsg(msg);
+              if (parsedBalance !== null) break;
+            }
+          }
+        }
+
+        if (parsedBalance !== null) {
+          await db.update(accountsTable).set({
+            balance: parsedBalance,
+            updatedAt: new Date(),
+          }).where(eq(accountsTable.id, runtime.accountId)).catch(() => {});
+          botLog.info(`[${runtime.label}] 💰 Balance updated: ${parsedBalance.toLocaleString()}`, runtime.accountId);
+        } else {
+          botLog.warn(`[${runtime.label}] Could not parse balance from bot reply`, runtime.accountId);
+        }
+
+        results.push({ accountId: runtime.accountId, label: runtime.label, balance: parsedBalance });
+      } catch (err) {
+        const errMsg = (err as Error).message;
+        botLog.error(`[${runtime.label}] Balance refresh failed: ${errMsg}`, runtime.accountId);
+        results.push({ accountId: runtime.accountId, label: runtime.label, balance: null, error: errMsg });
+      }
+    }
 
     const updated = results.filter((r) => r.balance !== null).length;
     botLog.info(`✅ Balance refresh done. Updated ${updated}/${runtimes.length} accounts.`);
