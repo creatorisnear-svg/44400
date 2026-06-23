@@ -706,35 +706,62 @@ class NukeBot {
       if (msg && msg.components && msg.components.length > 0) {
         const targetServer = String((settings as any).transferServer ?? 1);
 
-        // Flatten all components from all action rows
         const allComponents: any[] = (msg.components as any[]).flatMap(
           (row: any) => row.components ?? [],
         );
 
-        // Log what we found for debugging
         botLog.info(
           `[${runtime.label}] components: ${allComponents.map((c: any) => `type=${c.type} customId=${c.customId} label=${c.label ?? "-"} disabled=${c.disabled}`).join(" | ")}`,
           runtime.accountId,
         );
 
-        // Try select menu first (KA0SBOT "choose server" dropdown)
         const SELECT_TYPES = ["SELECT_MENU", "STRING_SELECT", "USER_SELECT", "ROLE_SELECT", "MENTIONABLE_SELECT", "CHANNEL_SELECT"];
         const selectComp = allComponents.find(
           (c: any) => (SELECT_TYPES.includes(c.type) || c.type === 3) && !c.disabled,
         );
+        const buttonComp = !selectComp
+          ? allComponents.find((c: any) => (c.type === "BUTTON" || c.type === 2) && !c.disabled && c.customId)
+          : null;
 
-        // Helper: extract scrap amount from an interaction response message/object
-        const extractAmountFromResponse = (resp: any): number => {
-          if (!resp) return 0;
-          const text = [
-            resp.content ?? "",
-            ...(resp.embeds ?? []).map((e: any) => `${e.title ?? ""} ${e.description ?? ""}`),
-          ].join(" ");
-          return parseScrapFromText(text);
-        };
+        if (!selectComp && !buttonComp) {
+          botLog.warn(`[${runtime.label}] no interactable component found`, runtime.accountId);
+        } else {
+          // CRITICAL: start listening for KA0SBOT's reply BEFORE sending the interaction,
+          // because the ephemeral reply fires messageCreate during selectMenu()'s internal wait.
+          const replyPromise = new Promise<{ amount: number; alreadyClaimed: boolean }>((resolve) => {
+            const timer = setTimeout(() => {
+              client.off("messageCreate", replyHandler);
+              resolve({ amount: 0, alreadyClaimed: false });
+            }, 12000);
 
-        if (selectComp) {
-          try {
+            function replyHandler(m: any) {
+              if (settings.cloverId && m.author.id !== settings.cloverId) return;
+              const mentioned = !m.mentions?.users?.size || m.mentions.users.has(client.user?.id ?? "");
+              if (!mentioned) return;
+              const fullText = [
+                m.content ?? "",
+                ...(m.embeds ?? []).map((e: any) => `${e.title ?? ""} ${e.description ?? ""}`),
+              ].join(" ");
+
+              if (/already\s+claimed/i.test(fullText)) {
+                clearTimeout(timer);
+                client.off("messageCreate", replyHandler);
+                resolve({ amount: 0, alreadyClaimed: true });
+                return;
+              }
+              const parsed = parseScrapFromText(fullText);
+              if (parsed > 0) {
+                clearTimeout(timer);
+                client.off("messageCreate", replyHandler);
+                resolve({ amount: parsed, alreadyClaimed: false });
+              }
+            }
+
+            client.on("messageCreate", replyHandler);
+          });
+
+          // Now send the interaction
+          if (selectComp) {
             const options: any[] = selectComp.options ?? [];
             botLog.info(
               `[${runtime.label}] select menu options: ${options.map((o: any) => `${o.label}(${o.value})`).join(", ")}`,
@@ -747,73 +774,51 @@ class NukeBot {
             ) ?? options[0];
 
             if (targetOption) {
-              // selectMenu() returns the interaction response (ephemeral message from KA0SBOT)
-              const resp = await msg.selectMenu(selectComp.customId, [targetOption.value]);
+              try {
+                await msg.selectMenu(selectComp.customId, [targetOption.value]);
+                botLog.info(`[${runtime.label}] ✓ selected "${targetOption.label}"`, runtime.accountId);
+              } catch (selErr) {
+                // The HTTP interaction was still dispatched — the error is just the response promise timing out
+                botLog.warn(`[${runtime.label}] selectMenu response timed out (interaction was sent): ${(selErr as Error).message}`, runtime.accountId);
+              }
               interactionSent = true;
-              botLog.info(`[${runtime.label}] ✓ selected "${targetOption.label}"`, runtime.accountId);
-
-              // Try to parse amount directly from the interaction response
-              const directAmount = extractAmountFromResponse(resp);
-              if (directAmount > 0) {
-                scrapGained = directAmount;
-                success = true;
-                runtime.claimsThisSession++;
-                runtime.scrapThisSession += scrapGained;
-                botLog.info(`[${runtime.label}] ✓ claimed! +${scrapGained.toLocaleString()} clover points`, runtime.accountId);
-                const [dbAcc] = await db.select().from(accountsTable).where(eq(accountsTable.id, runtime.accountId));
-                if (dbAcc) {
-                  await db.update(accountsTable).set({
-                    balance: (dbAcc.balance ?? 0) + scrapGained,
-                    totalClaimed: (dbAcc.totalClaimed ?? 0) + scrapGained,
-                    updatedAt: new Date(),
-                  }).where(eq(accountsTable.id, runtime.accountId)).catch(() => {});
-                }
-                return { success, scrapGained, alreadyClaimed, error };
-              }
-
-              // Check already-claimed in direct response
-              const respText = [resp?.content ?? "", ...(resp?.embeds ?? []).map((e: any) => `${e.title ?? ""} ${e.description ?? ""}`)].join(" ");
-              if (/already\s+claimed/i.test(respText)) {
-                alreadyClaimed = true;
-                botLog.info(`[${runtime.label}] ℹ️ Already claimed this nuke`, runtime.accountId);
-                return { success, scrapGained, alreadyClaimed, error };
-              }
             } else {
               botLog.warn(`[${runtime.label}] no option for server ${targetServer}`, runtime.accountId);
             }
-          } catch (selErr) {
-            botLog.warn(`[${runtime.label}] select error: ${(selErr as Error).message}`, runtime.accountId);
-          }
-        } else {
-          // Fallback: click first non-disabled button using Message.clickButton(customId)
-          const buttonComp = allComponents.find(
-            (c: any) => (c.type === "BUTTON" || c.type === 2) && !c.disabled && c.customId,
-          );
-          if (buttonComp) {
+          } else if (buttonComp) {
             try {
-              const resp = await msg.clickButton(buttonComp.customId);
-              interactionSent = true;
+              await msg.clickButton(buttonComp.customId);
               botLog.info(`[${runtime.label}] ✓ clicked button "${buttonComp.label ?? buttonComp.customId}"`, runtime.accountId);
-
-              const directAmount = extractAmountFromResponse(resp);
-              if (directAmount > 0) {
-                scrapGained = directAmount;
-                success = true;
-                runtime.claimsThisSession++;
-                runtime.scrapThisSession += scrapGained;
-                botLog.info(`[${runtime.label}] ✓ claimed! +${scrapGained.toLocaleString()} clover points`, runtime.accountId);
-                const [dbAcc] = await db.select().from(accountsTable).where(eq(accountsTable.id, runtime.accountId));
-                if (dbAcc) {
-                  await db.update(accountsTable).set({
-                    balance: (dbAcc.balance ?? 0) + scrapGained,
-                    totalClaimed: (dbAcc.totalClaimed ?? 0) + scrapGained,
-                    updatedAt: new Date(),
-                  }).where(eq(accountsTable.id, runtime.accountId)).catch(() => {});
-                }
-                return { success, scrapGained, alreadyClaimed, error };
-              }
             } catch (btnErr) {
-              botLog.warn(`[${runtime.label}] button error: ${(btnErr as Error).message}`, runtime.accountId);
+              botLog.warn(`[${runtime.label}] clickButton response timed out (interaction was sent): ${(btnErr as Error).message}`, runtime.accountId);
+            }
+            interactionSent = true;
+          }
+
+          if (interactionSent) {
+            const { amount, alreadyClaimed: ac } = await replyPromise;
+            if (ac) {
+              alreadyClaimed = true;
+              botLog.info(`[${runtime.label}] ℹ️ Already claimed this nuke`, runtime.accountId);
+            } else if (amount > 0) {
+              scrapGained = amount;
+              success = true;
+              runtime.claimsThisSession++;
+              runtime.scrapThisSession += scrapGained;
+              botLog.info(`[${runtime.label}] ✓ claimed! +${scrapGained.toLocaleString()} clover points`, runtime.accountId);
+              const [dbAcc] = await db.select().from(accountsTable).where(eq(accountsTable.id, runtime.accountId));
+              if (dbAcc) {
+                await db.update(accountsTable).set({
+                  balance: (dbAcc.balance ?? 0) + scrapGained,
+                  totalClaimed: (dbAcc.totalClaimed ?? 0) + scrapGained,
+                  updatedAt: new Date(),
+                }).where(eq(accountsTable.id, runtime.accountId)).catch(() => {});
+              }
+            } else {
+              // Interaction sent but no parseable reply within 12s — still count as claimed
+              success = true;
+              runtime.claimsThisSession++;
+              botLog.info(`[${runtime.label}] ✓ claimed! (amount unknown — no parseable reply)`, runtime.accountId);
             }
           }
         }
@@ -823,69 +828,7 @@ class NukeBot {
         botLog.warn(`[${runtime.label}] could not fetch nuke message ${triggerMsg.id}`, runtime.accountId);
       }
 
-      if (interactionSent) {
-        // Interaction was sent — KA0SBOT replies ephemerally so we may not receive messageCreate.
-        // The direct-response path above already returned if it parsed the amount.
-        // This fallback: wait briefly for a non-ephemeral messageCreate, then mark success anyway.
-        const rawResult = await new Promise<number>((resolve) => {
-          const timeoutHandle = setTimeout(() => {
-            client.off("messageCreate", handler);
-            // Resolve with sentinel -2: "sent but couldn't parse amount"
-            resolve(-2);
-          }, 5000);
-
-          function handler(m: any) {
-            if (settings.cloverId && m.author.id !== settings.cloverId) return;
-            const mentioned = !m.mentions?.users?.size || m.mentions.users.has(client.user?.id ?? "");
-            if (!mentioned) return;
-            const fullText = (m.content ?? "") + " " +
-              (m.embeds ?? []).map((e: any) => `${e.title ?? ""} ${e.description ?? ""}`).join(" ");
-
-            if (/already\s+claimed/i.test(fullText)) {
-              clearTimeout(timeoutHandle);
-              client.off("messageCreate", handler);
-              resolve(-1);
-              return;
-            }
-
-            const parsed = parseScrapFromText(fullText);
-            if (parsed > 0) {
-              clearTimeout(timeoutHandle);
-              client.off("messageCreate", handler);
-              resolve(parsed);
-            }
-          }
-
-          client.on("messageCreate", handler);
-        });
-
-        if (rawResult === -1) {
-          alreadyClaimed = true;
-          botLog.info(`[${runtime.label}] ℹ️ Already claimed this nuke`, runtime.accountId);
-        } else if (rawResult === -2) {
-          // Interaction sent, KA0SBOT replied ephemerally — amount unknown
-          success = true;
-          runtime.claimsThisSession++;
-          botLog.info(`[${runtime.label}] ✓ claimed! (amount unknown — ephemeral response)`, runtime.accountId);
-        } else {
-          scrapGained = rawResult;
-          success = true;
-          runtime.claimsThisSession++;
-          runtime.scrapThisSession += scrapGained;
-          botLog.info(`[${runtime.label}] ✓ claimed! +${scrapGained.toLocaleString()} clover points`, runtime.accountId);
-
-          if (scrapGained > 0) {
-            const [dbAcc] = await db.select().from(accountsTable).where(eq(accountsTable.id, runtime.accountId));
-            if (dbAcc) {
-              await db.update(accountsTable).set({
-                balance: (dbAcc.balance ?? 0) + scrapGained,
-                totalClaimed: (dbAcc.totalClaimed ?? 0) + scrapGained,
-                updatedAt: new Date(),
-              }).where(eq(accountsTable.id, runtime.accountId)).catch(() => {});
-            }
-          }
-        }
-      } else {
+      if (!interactionSent && msg && (msg.components?.length ?? 0) > 0) {
         botLog.warn(`[${runtime.label}] no interaction sent — cannot claim`, runtime.accountId);
       }
     } catch (err) {
