@@ -354,10 +354,8 @@ function RefreshBalancesButton({ onDone }: { onDone: () => void }) {
     mutationFn: () => apiFetch("/api/accounts/refresh-balances", { method: "POST" }),
     onSuccess: (data) => {
       onDone();
-      const updated = (data.results ?? []).filter((r: any) => r.balance !== null).length;
-      const total = (data.results ?? []).length;
-      setResult(`✓ Updated ${updated}/${total}`);
-      setTimeout(() => setResult(null), 4000);
+      setResult(`✓ ${data.message ?? "Started"}`);
+      setTimeout(() => setResult(null), 8000);
     },
     onError: (e) => {
       setResult(`✗ ${(e as Error).message}`);

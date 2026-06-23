@@ -128,8 +128,13 @@ router.post("/transfer/fill/cancel", async (_req, res) => {
 
 router.post("/accounts/refresh-balances", async (_req, res) => {
   try {
-    const results = await nukeBot.refreshBalances();
-    return res.json({ results });
+    const count = nukeBot.connectedCount();
+    nukeBot.refreshBalances().catch(() => {});
+    const minutes = Math.max(0, (count - 1) * 10);
+    return res.json({
+      ok: true,
+      message: `Balance refresh started for ${count} account(s). Each /balance is 10 min apart — all done in ~${minutes} min.`,
+    });
   } catch (err) {
     return res.status(400).json({ error: (err as Error).message });
   }

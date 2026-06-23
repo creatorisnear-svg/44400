@@ -851,6 +851,10 @@ class NukeBot {
     return results;
   }
 
+  connectedCount(): number {
+    return [...this.runtimes.values()].filter((r) => r.status === "connected" && r.client).length;
+  }
+
   async refreshBalances(): Promise<{ accountId: number; label: string; balance: number | null; error?: string }[]> {
     const [settings] = await db.select().from(botSettingsTable).limit(1);
     if (!settings) throw new Error("Bot settings not configured.");
@@ -865,9 +869,11 @@ class NukeBot {
 
     botLog.info(`💰 Refreshing balances for ${runtimes.length} account(s)...`);
 
+    const TEN_MINUTES = 10 * 60 * 1000;
+
     const results = await Promise.all(
       runtimes.map(async (runtime, idx) => {
-        if (idx > 0) await delay(1500 * idx);
+        if (idx > 0) await delay(TEN_MINUTES * idx);
 
         try {
           const channel = runtime.client!.channels.cache.get(transferChannelId);
