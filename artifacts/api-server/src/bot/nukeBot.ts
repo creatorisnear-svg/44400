@@ -76,20 +76,71 @@ function isNukeMessage(content: string, embeds: any[], keywords: string[]): bool
   return keywords.some((kw) => full.includes(kw.toLowerCase().trim()));
 }
 
-function parseScrapFromText(text: string): number {
+// Parse a balance number from any KA0SBOT balance reply text.
+// Handles formats like "S1| 349,010.00 clover points", "**100,000** clover points", etc.
+function parseBalanceFromText(raw: string): number | null {
+  const text = raw.replace(/\*{1,2}|_{1,2}|~~|`/g, " ").replace(/\s+/g, " ");
   const patterns = [
-    // KA0SBOT ephemeral: "Successfully claimed 100,000 clover points on Server 1"
-    /successfully\s+claimed\s+(\d[\d,]*)\s*(?:clover\s+)?points?/i,
-    /claimed\s+(\d[\d,]*)\s*(?:clover\s+)?points?/i,
-    // Generic
-    /you\s+(?:received?|gained?|got)\s+(\d[\d,]*)\s*(?:scrap|clover|coins?|points?)/i,
-    /\+\s*(\d[\d,]*)\s*(?:scrap|clover|coins?|points?)/i,
-    /(\d[\d,]*)\s*(?:clover\s+)?points?\s+(?:claimed|received?)/i,
-    /(\d[\d,]*)\s*(?:scrap|coins?)\s+(?:claimed|received?)/i,
+    /([\d,]+(?:\.\d+)?)\s*clover\s*points?/i,
+    /clover\s*points?[:\s]+([\d,]+(?:\.\d+)?)/i,
+    /S\d+\s*\|\s*([\d,]+(?:\.\d+)?)/i,
+    /balance[:\s]+([\d,]+(?:\.\d+)?)/i,
+    /wallet[:\s]+([\d,]+(?:\.\d+)?)/i,
+    /you\s+have\s+([\d,]+(?:\.\d+)?)/i,
+    /([\d,]+(?:\.\d+)?)\s*clover/i,
   ];
   for (const p of patterns) {
     const m = text.match(p);
-    if (m) return parseInt(m[1].replace(/,/g, ""), 10);
+    if (m) {
+      const val = Math.floor(parseFloat(m[1].replace(/,/g, "")));
+      if (!isNaN(val) && val >= 0) return val;
+    }
+  }
+  return null;
+}
+
+// Recursively extract all text strings from a nested message/interaction object.
+function extractAllText(obj: any): string {
+  if (!obj) return "";
+  const parts: string[] = [];
+  const dig = (o: any) => {
+    if (!o || typeof o !== "object") return;
+    if (typeof o.content === "string") parts.push(o.content);
+    if (typeof o.description === "string") parts.push(o.description);
+    if (typeof o.title === "string") parts.push(o.title);
+    if (typeof o.value === "string") parts.push(o.value);
+    if (typeof o.name === "string" && typeof o.value !== "undefined") parts.push(o.name);
+    for (const key of ["embeds", "fields", "components", "message", "data"]) {
+      if (Array.isArray(o[key])) o[key].forEach(dig);
+      else if (o[key]) dig(o[key]);
+    }
+  };
+  dig(obj);
+  return parts.join(" ");
+}
+
+function parseScrapFromText(raw: string): number {
+  // Strip Discord markdown (**, *, __, _, ~~, `) before pattern matching so
+  // "Successfully claimed **100,000** clover points" parses correctly.
+  const text = raw.replace(/\*{1,2}|_{1,2}|~~|`/g, " ").replace(/\s+/g, " ");
+  const patterns = [
+    // KA0SBOT ephemeral: "Successfully claimed 100,000 clover points on Server 1"
+    /successfully\s+claimed\s+([\d,]+)\s*(?:clover\s+)?points?/i,
+    /claimed\s+([\d,]+)\s*(?:clover\s+)?points?/i,
+    // Generic fallbacks
+    /you\s+(?:received?|gained?|got)\s+([\d,]+)\s*(?:scrap|clover|coins?|points?)/i,
+    /\+\s*([\d,]+)\s*(?:scrap|clover|coins?|points?)/i,
+    /([\d,]+)\s*(?:clover\s+)?points?\s+(?:claimed|received?)/i,
+    /([\d,]+)\s*(?:scrap|coins?)\s+(?:claimed|received?)/i,
+    // Broad fallback: any large standalone number followed by "clover points"
+    /([\d,]{4,})\s*clover\s*points?/i,
+  ];
+  for (const p of patterns) {
+    const m = text.match(p);
+    if (m) {
+      const val = parseInt(m[1].replace(/,/g, ""), 10);
+      if (!isNaN(val) && val > 0) return val;
+    }
   }
   return 0;
 }
@@ -888,16 +939,25 @@ class NukeBot {
               const d = packet.d ?? packet;
               if (!d) return;
               // For interaction packets the author may be nested differently
-              const authorId = d.author?.id ?? d.member?.user?.id ?? d.user?.id;
+              const authorId = d.author?.id ?? d.member?.user?.id ?? d.user?.id ?? d.application_id;
               if (settings.cloverId && authorId && authorId !== settings.cloverId) return;
-              const msgData = d.message ?? d;
+              // KA0SBOT ephemeral claim replies arrive as INTERACTION_CREATE with text at:
+              //   d.message.content  — regular message in interaction
+              //   d.data.content     — ephemeral interaction response body
+              //   d.content          — top-level content
+              const embeds = (d.message?.embeds ?? d.embeds ?? []) as any[];
               const text = [
-                msgData.content ?? "",
-                ...(msgData.embeds ?? []).map((e: any) =>
+                d.message?.content ?? "",
+                d.data?.content ?? "",
+                d.content ?? "",
+                ...embeds.map((e: any) =>
                   `${e.title ?? ""} ${e.description ?? ""} ${(e.fields ?? []).map((f: any) => `${f.name} ${f.value}`).join(" ")}`
                 ),
               ].join(" ");
-              if (text.trim()) checkText(text);
+              if (text.trim()) {
+                botLog.info(`[${runtime.label}] raw reply (${packet.t}): "${text.slice(0, 200)}"`, runtime.accountId);
+                checkText(text);
+              }
             }
 
             // messageCreate fires when Message construction succeeds (simpler nukes)
@@ -1231,6 +1291,78 @@ class NukeBot {
     return [...this.runtimes.values()].filter((r) => r.status === "connected" && r.client).length;
   }
 
+  // Refresh the balance of a single account by ID (no inter-account delay).
+  async refreshSingleAccount(accountId: number): Promise<number | null> {
+    const [settings] = await db.select().from(botSettingsTable).limit(1);
+    if (!settings) throw new Error("Bot settings not configured.");
+
+    const runtime = this.runtimes.get(accountId);
+    if (!runtime || runtime.status !== "connected" || !runtime.client) {
+      throw new Error(`Account ${accountId} is not connected.`);
+    }
+
+    const channelId = (settings as any).transferChannelId || settings.channelId;
+    const cloverId = settings.cloverId;
+    const client = runtime.client;
+
+    let channel = client.channels.cache.get(channelId) as any;
+    if (!channel?.isText?.()) {
+      const guildId = (settings as any).serverId;
+      if (guildId) channel = client.channels.cache.find((c: any) => c.guildId === guildId && c.isText?.()) as any;
+    }
+    if (!channel) throw new Error(`No accessible channel for ${runtime.label}`);
+
+    botLog.info(`[${runtime.label}] 💰 Refreshing balance (single)...`, accountId);
+
+    let _resolve!: (v: number | null) => void;
+    let _settled = false;
+    const settle = (v: number | null) => { if (_settled) return; _settled = true; _resolve(v); };
+
+    const promise = new Promise<number | null>((res) => {
+      _resolve = res;
+      let handler: (p: any) => void;
+      const cleanup = () => client.off("raw", handler);
+      const timer = setTimeout(() => { cleanup(); settle(null); }, 10_000);
+
+      handler = (packet: any) => {
+        const RAW_TYPES = new Set(["MESSAGE_CREATE","MESSAGE_UPDATE","INTERACTION_CREATE","INTERACTION_SUCCESS","INTERACTION_APPLICATION_COMMAND"]);
+        if (!RAW_TYPES.has(packet.t)) return;
+        const d = packet.d ?? packet;
+        if (!d) return;
+        const authorId = d.author?.id ?? d.member?.user?.id ?? d.user?.id;
+        if (cloverId && authorId && authorId !== cloverId) return;
+        const text = extractAllText(d.message ?? d.data ?? d);
+        if (!text.trim()) return;
+        botLog.info(`[${runtime.label}] 💰 balance raw (${packet.t}): "${text.slice(0,150)}"`, accountId);
+        const parsed = parseBalanceFromText(text);
+        if (parsed !== null) { clearTimeout(timer); cleanup(); settle(parsed); }
+      };
+      client.on("raw", handler);
+    });
+
+    try {
+      const resp = await (channel as any).sendSlash(cloverId, "balance");
+      if (!_settled) {
+        for (const c of [resp, resp?.message, resp?.data].filter(Boolean)) {
+          const v = parseBalanceFromText(extractAllText(c));
+          if (v !== null) { settle(v); break; }
+        }
+      }
+    } catch (e) {
+      botLog.warn(`[${runtime.label}] 💰 sendSlash error: ${(e as Error).message}`, accountId);
+    }
+
+    const balance = await promise;
+    if (balance !== null) {
+      await db.update(accountsTable).set({ balance, updatedAt: new Date() })
+        .where(eq(accountsTable.id, accountId)).catch(() => {});
+      botLog.info(`[${runtime.label}] 💰 Balance updated: ${balance.toLocaleString()}`, accountId);
+    } else {
+      botLog.warn(`[${runtime.label}] 💰 Could not parse balance reply.`, accountId);
+    }
+    return balance;
+  }
+
   async refreshBalances(): Promise<{ accountId: number; label: string; balance: number | null; error?: string }[]> {
     const [settings] = await db.select().from(botSettingsTable).limit(1);
     if (!settings) throw new Error("Bot settings not configured.");
@@ -1244,52 +1376,6 @@ class NukeBot {
     const cloverId = settings.cloverId;
 
     botLog.info(`💰 Refreshing balances for ${runtimes.length} account(s)...`);
-
-    // Parse balance from text — handles formats like:
-    //   "S1| 349,010.00 clover points"   (KA0SBOT /balance ephemeral reply)
-    //   "Your clover points  S1| 349,010.00 clover points"
-    const parseBalanceFromText = (text: string): number | null => {
-      const patterns = [
-        // Primary: digits (with optional commas/decimals) before "clover points"
-        /([\d,]+(?:\.\d+)?)\s*clover\s*points?/i,
-        /clover\s*points?[:\s]+([\d,]+(?:\.\d+)?)/i,
-        // Embed field patterns
-        /S\d+\s*\|\s*([\d,]+(?:\.\d+)?)/i,
-        /balance[:\s]+([\d,]+(?:\.\d+)?)/i,
-        /wallet[:\s]+([\d,]+(?:\.\d+)?)/i,
-        /you\s+have\s+([\d,]+(?:\.\d+)?)/i,
-        /\*\*([\d,]+(?:\.\d+)?)\*\*/,
-        /`([\d,]+(?:\.\d+)?)`/,
-      ];
-      for (const p of patterns) {
-        const m = text.match(p);
-        if (m) {
-          const val = Math.floor(parseFloat(m[1].replace(/,/g, "")));
-          if (!isNaN(val) && val >= 0) return val;
-        }
-      }
-      return null;
-    };
-
-    // Flatten all text out of a message/interaction object
-    const extractAllText = (obj: any): string => {
-      if (!obj) return "";
-      const parts: string[] = [];
-      const dig = (o: any) => {
-        if (!o || typeof o !== "object") return;
-        if (typeof o.content === "string") parts.push(o.content);
-        if (typeof o.description === "string") parts.push(o.description);
-        if (typeof o.title === "string") parts.push(o.title);
-        if (typeof o.value === "string") parts.push(o.value);
-        if (typeof o.name === "string" && typeof o.value !== "undefined") parts.push(o.name);
-        for (const key of ["embeds", "fields", "components", "message", "data"]) {
-          if (Array.isArray(o[key])) o[key].forEach(dig);
-          else if (o[key]) dig(o[key]);
-        }
-      };
-      dig(obj);
-      return parts.join(" ");
-    };
 
     const results: { accountId: number; label: string; balance: number | null; error?: string }[] = [];
 

@@ -180,6 +180,17 @@ router.post("/accounts/refresh-balances", async (_req, res) => {
   }
 });
 
+router.post("/accounts/:id/refresh-balance", async (req, res) => {
+  const id = Number(req.params.id);
+  if (isNaN(id)) return res.status(400).json({ error: "invalid account id" });
+  try {
+    const balance = await nukeBot.refreshSingleAccount(id);
+    return res.json({ ok: true, balance });
+  } catch (err) {
+    return res.status(400).json({ error: (err as Error).message });
+  }
+});
+
 router.get("/transfers", async (req, res) => {
   const limit = Math.min(Number(req.query.limit) || 50, 200);
   const rows = await db

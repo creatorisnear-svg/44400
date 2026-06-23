@@ -134,6 +134,25 @@ function AccountCard({ account, defaultRecipient }: { account: any; defaultRecip
   const [recipient, setRecipient] = useState(defaultRecipient ?? "");
   const [customAmount, setCustomAmount] = useState("");
   const [result, setResult] = useState<{ ok: boolean; msg: string } | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+
+  async function refreshBalance() {
+    setRefreshing(true);
+    try {
+      const data = await apiFetch(`/api/accounts/${account.id}/refresh-balance`, { method: "POST" });
+      if (data.balance !== null) {
+        setResult({ ok: true, msg: `✓ Balance: ${data.balance.toLocaleString()}` });
+      } else {
+        setResult({ ok: false, msg: "No balance reply from KA0SBOT (timed out)" });
+      }
+    } catch (e) {
+      setResult({ ok: false, msg: (e as Error).message });
+    } finally {
+      setRefreshing(false);
+      qc.invalidateQueries({ queryKey: ["accounts"] });
+      setTimeout(() => setResult(null), 5000);
+    }
+  }
 
   const sendMut = useMutation({
     mutationFn: (payload: { toUsername: string; amount: number }) =>
@@ -200,15 +219,32 @@ function AccountCard({ account, defaultRecipient }: { account: any; defaultRecip
         </div>
       </div>
 
-      {/* Quick send button */}
-      {isConnected && bal > 0 && !showSend && !result && (
-        <button
-          onClick={() => { setShowSend(true); setRecipient(defaultRecipient ?? ""); setCustomAmount(""); }}
-          className="w-full text-xs text-blue-400 hover:text-blue-300 border border-blue-700/40 hover:border-blue-500/60 bg-blue-900/10 hover:bg-blue-900/20 rounded-lg py-1.5 flex items-center justify-center gap-1.5 transition-colors"
-        >
-          <Send className="w-3 h-3" />
-          Quick Send {bal.toLocaleString()} balance
-        </button>
+      {/* Action buttons */}
+      {isConnected && !showSend && !result && (
+        <div className="flex gap-2">
+          {bal > 0 && (
+            <button
+              onClick={() => { setShowSend(true); setRecipient(defaultRecipient ?? ""); setCustomAmount(""); }}
+              className="flex-1 text-xs text-blue-400 hover:text-blue-300 border border-blue-700/40 hover:border-blue-500/60 bg-blue-900/10 hover:bg-blue-900/20 rounded-lg py-1.5 flex items-center justify-center gap-1.5 transition-colors"
+            >
+              <Send className="w-3 h-3" />
+              Send {bal.toLocaleString()}
+            </button>
+          )}
+          <button
+            onClick={refreshBalance}
+            disabled={refreshing}
+            title="Refresh this account's balance via /balance"
+            className={`text-xs border rounded-lg py-1.5 px-3 flex items-center gap-1.5 transition-colors ${
+              refreshing
+                ? "text-gray-500 border-gray-700 bg-gray-800/40 cursor-not-allowed"
+                : "text-gray-400 hover:text-yellow-300 border-gray-700 hover:border-yellow-600/50 bg-gray-900/30 hover:bg-yellow-900/10"
+            }`}
+          >
+            <RefreshCw className={`w-3 h-3 ${refreshing ? "animate-spin" : ""}`} />
+            {refreshing ? "Checking…" : "Balance"}
+          </button>
+        </div>
       )}
 
       {/* Inline send form */}
