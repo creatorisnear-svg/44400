@@ -1,0 +1,37 @@
+Instance created. Preparing to start...
+Starting download for registry01.prod.koyeb.com/k-5e2e38aa-d94e-499c-add9-041cfef81c4a/11d4d86e-35dc-4a78-b4b9-775d9ab757df:d675967a-190b-4d0d-9f3d-40b90ae683b8
+Download progress: 100% |[32m++++++++[0m| (14.7 MiB/s)
+Download complete for registry01.prod.koyeb.com/k-5e2e38aa-d94e-499c-add9-041cfef81c4a/11d4d86e-35dc-4a78-b4b9-775d9ab757df:d675967a-190b-4d0d-9f3d-40b90ae683b8
+==> Running database migrations...
+Instance is starting... Waiting for health checks to pass.
+
+> @workspace/db@0.0.0 push-force /app/lib/db
+> drizzle-kit push --force --config ./drizzle.config.ts
+
+Reading config file '/app/lib/db/drizzle.config.ts'
+Using 'pg' driver for database querying
+[⣷] Pulling schema from database...
+(node:15) Warning: SECURITY WARNING: The SSL modes 'prefer', 'require', and 'verify-ca' are treated as aliases for 'verify-full'.
+In the next major version (pg-connection-string v3.0.0 and pg v9.0.0), these modes will adopt standard libpq semantics, which have weaker security guarantees.
+
+To prepare for this change:
+- If you want the current behavior, explicitly use 'sslmode=verify-full'
+- If you want libpq compatibility now, use 'uselibpqcompat=true&sslmode=require'
+
+See https://www.postgresql.org/docs/current/libpq-ssl.html for libpq SSL mode definitions.
+(Use `node --trace-warnings ...` to show where the warning was created)
+[2K[1G[⣯] Pulling schema from database...
+[2K[1G[⣟] Pulling schema from database...
+[2K[1G[⡿] Pulling schema from database...
+[2K[1G[⢿] Pulling schema from database...
+[2K[1G[⣻] Pulling schema from database...
+[2K[1G[⣽] Pulling schema from database...
+[2K[1G[✓] Pulling schema from database...
+[✓] Changes applied
+==> Starting server...
+{"level":30,"time":1782179626611,"pid":1,"hostname":"70835fd7","port":3000,"msg":"Server listening"}
+Instance is healthy. All health checks are passing.
+{"level":30,"time":1782179653070,"pid":1,"hostname":"70835fd7","req":{"id":1,"method":"GET","url":"/"},"res":{"statusCode":404},"responseTime":14,"msg":"request completed"}
+Error: ENOENT: no such file or directory, stat '/app/artifacts/artifacts/blackjack-bot/dist/public/index.html'
+{"level":30,"time":1782179670019,"pid":1,"hostname":"70835fd7","req":{"id":2,"method":"GET","url":"/"},"res":{"statusCode":404},"responseTime":2,"msg":"request completed"}
+Error: ENOENT: no such file or directory, stat '/app/artifacts/artifacts/blackjack-bot/dist/public/index.html'

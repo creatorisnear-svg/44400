@@ -92,6 +92,9 @@ function NukeEventRow({ event }: { event: any }) {
   );
 }
 
+const TAX_RATE = 0.20;
+const netReceived = (gross: number) => Math.floor(gross * (1 - TAX_RATE));
+
 function TransferRow({ transfer }: { transfer: any }) {
   return (
     <Card className="bg-gray-900 border-gray-700">
@@ -111,12 +114,20 @@ function TransferRow({ transfer }: { transfer: any }) {
                 {" → "}
                 <span className="text-blue-300">@{transfer.toUsername}</span>
               </span>
-              <span
-                className={`text-sm font-bold ${transfer.success ? "text-blue-400" : "text-red-400"}`}
-              >
-                {transfer.success ? `${transfer.amount?.toLocaleString()}` : "Failed"}
-              </span>
+              {transfer.success && (
+                <span className="text-sm font-bold text-blue-400">
+                  {transfer.amount?.toLocaleString()} sent
+                </span>
+              )}
+              {!transfer.success && (
+                <span className="text-sm font-bold text-red-400">Failed</span>
+              )}
             </div>
+            {transfer.success && transfer.amount > 0 && (
+              <p className="text-xs text-green-400 mt-0.5">
+                → {netReceived(transfer.amount).toLocaleString()} received (after 20% tax)
+              </p>
+            )}
             {transfer.error && (
               <p className="text-xs text-red-400 mt-0.5 truncate">{transfer.error}</p>
             )}
