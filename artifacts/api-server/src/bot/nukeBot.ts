@@ -114,17 +114,37 @@ class NukeBot {
       if (label && token) parsed.push({ label, token });
     }
 
-    if (parsed.length === 0) return;
+    if (parsed.length === 0) {
+      botLog.warn("DISCORD_ACCOUNTS is set but no valid entries found. Format: Label1:TOKEN1,Label2:TOKEN2");
+      return;
+    }
 
     botLog.info(`Syncing ${parsed.length} account(s) from DISCORD_ACCOUNTS env var...`);
 
-    await db.delete(accountsTable);
+    const existing = await db.select().from(accountsTable);
+    const existingByLabel = new Map(existing.map((a) => [a.label, a]));
+    const envLabels = new Set(parsed.map((p) => p.label));
 
     for (const { label, token } of parsed) {
-      await db.insert(accountsTable).values({ label, token, enabled: true });
+      const acc = existingByLabel.get(label);
+      if (acc) {
+        await db.update(accountsTable)
+          .set({ token, enabled: true, updatedAt: new Date() })
+          .where(eq(accountsTable.id, acc.id));
+      } else {
+        await db.insert(accountsTable).values({ label, token, enabled: true });
+      }
     }
 
-    botLog.info(`Accounts synced: ${parsed.map((p) => p.label).join(", ")}`);
+    for (const acc of existing) {
+      if (!envLabels.has(acc.label)) {
+        await db.update(accountsTable)
+          .set({ enabled: false, updatedAt: new Date() })
+          .where(eq(accountsTable.id, acc.id));
+      }
+    }
+
+    botLog.info(`✅ Accounts synced from env: ${parsed.map((p) => p.label).join(", ")}`);
   }
 
   async start(): Promise<void> {
@@ -405,11 +425,30 @@ class NukeBot {
     });
 
     client.on("disconnect", () => {
-      if (runtime.status !== "disconnected") {
-        runtime.status = "error";
-        botLog.warn(`[${account.label}] disconnected unexpectedly`, account.id);
-      }
+      if (!this.running || runtime.status === "disconnected") return;
+      runtime.status = "error";
+      botLog.warn(`[${account.label}] disconnected — reconnecting in 30s...`, account.id);
+      this.scheduleReconnect(account, settings, 30_000);
     });
+  }
+
+  private scheduleReconnect(
+    account: typeof accountsTable.$inferSelect,
+    settings: typeof botSettingsTable.$inferSelect,
+    delayMs: number,
+  ): void {
+    if (!this.running) return;
+    setTimeout(async () => {
+      if (!this.running) return;
+      botLog.info(`[${account.label}] Reconnecting...`, account.id);
+      try {
+        await this.connectAccount(account, settings);
+      } catch (err) {
+        const msg = (err as Error).message;
+        botLog.error(`[${account.label}] Reconnect failed: ${msg} — retrying in 60s`, account.id);
+        this.scheduleReconnect(account, settings, 60_000);
+      }
+    }, delayMs);
   }
 
   private async claimNukeOnAllAccounts(
