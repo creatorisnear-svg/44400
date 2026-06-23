@@ -547,6 +547,27 @@ class NukeBot {
           .catch(() => {});
 
         botLog.info(`[${account.label}] logged in as ${runtime.username}`, account.id);
+
+        // Randomize presence so accounts don't all appear identical/always-online
+        const humanize = (settings as any).humanize ?? true;
+        if (humanize) {
+          const statuses: Array<"online" | "idle" | "dnd"> = ["online", "online", "online", "idle"];
+          const chosenStatus = statuses[Math.floor(Math.random() * statuses.length)];
+          try {
+            client.user?.setStatus(chosenStatus);
+          } catch {}
+
+          // Rotate presence every 10–25 minutes to look like a real user
+          const rotateStatus = () => {
+            if (!runtime.client) return;
+            const next = statuses[Math.floor(Math.random() * statuses.length)];
+            try { client.user?.setStatus(next); } catch {}
+            const nextIn = (10 + Math.random() * 15) * 60 * 1000;
+            setTimeout(rotateStatus, nextIn);
+          };
+          setTimeout(rotateStatus, (10 + Math.random() * 15) * 60 * 1000);
+        }
+
         resolve();
       });
       client.once("error", (err) => {
@@ -641,30 +662,55 @@ class NukeBot {
 
     let totalScrap = 0;
     let claimCount = 0;
+    const skipRate = (settings as any).skipRate ?? 0;
+    const humanize = (settings as any).humanize ?? true;
 
-    await Promise.all(
-      runtimes.map(async (runtime) => {
-        await randDelay(settings.claimDelayMin, settings.claimDelayMax);
-        const result = await this.claimNukeForRuntime(runtime, triggerMsg, settings);
+    // Shuffle order so accounts don't always claim in the same sequence
+    const shuffled = humanize ? [...runtimes].sort(() => Math.random() - 0.5) : runtimes;
 
-        if (result.success) {
-          totalScrap += result.scrapGained;
-          claimCount++;
-          this.totalClaimsToday++;
-          this.totalScrapToday += result.scrapGained;
-        }
-
+    // Process accounts sequentially with staggered delays (looks more human than all-at-once)
+    for (const runtime of shuffled) {
+      // Per-account skip rate — occasionally skip an account entirely
+      if (skipRate > 0 && Math.random() * 100 < skipRate) {
+        botLog.info(`[${runtime.label}] ⏭️ Skipped this nuke (skip rate ${skipRate}%)`, runtime.accountId);
         if (nukeEventId) {
           await db.insert(claimsTable).values({
             nukeEventId,
             accountId: runtime.accountId,
-            success: result.success,
-            scrapGained: result.scrapGained,
-            error: result.alreadyClaimed ? "already_claimed" : result.error,
+            success: false,
+            scrapGained: 0,
+            error: "skipped",
           }).catch(() => {});
         }
-      }),
-    );
+        continue;
+      }
+
+      // Staggered delay between accounts (1–4s apart when humanize is on, claim delay otherwise)
+      if (humanize) {
+        await randDelay(1000, 4000);
+      } else {
+        await randDelay(settings.claimDelayMin, settings.claimDelayMax);
+      }
+
+      const result = await this.claimNukeForRuntime(runtime, triggerMsg, settings);
+
+      if (result.success) {
+        totalScrap += result.scrapGained;
+        claimCount++;
+        this.totalClaimsToday++;
+        this.totalScrapToday += result.scrapGained;
+      }
+
+      if (nukeEventId) {
+        await db.insert(claimsTable).values({
+          nukeEventId,
+          accountId: runtime.accountId,
+          success: result.success,
+          scrapGained: result.scrapGained,
+          error: result.alreadyClaimed ? "already_claimed" : result.error,
+        }).catch(() => {});
+      }
+    }
 
     if (nukeEventId) {
       await db.update(nukeEventsTable)
@@ -761,6 +807,15 @@ class NukeBot {
           });
 
           // Now send the interaction
+          const humanize = (settings as any).humanize ?? true;
+          if (humanize) {
+            // Pre-click jitter — a real user takes a moment to read and react
+            await randDelay(200, 900);
+            // Show typing indicator so it looks like the account is actively doing something
+            try { await (channel as any).sendTyping(); } catch {}
+            await randDelay(600, 1800);
+          }
+
           if (selectComp) {
             const options: any[] = selectComp.options ?? [];
             botLog.info(

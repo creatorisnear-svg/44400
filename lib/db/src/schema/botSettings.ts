@@ -18,6 +18,8 @@ export const botSettingsTable = pgTable("bot_settings", {
   autoTransferIntervalMin: integer("auto_transfer_interval_min").notNull().default(10),
   transferChannelId: text("transfer_channel_id").notNull().default(""),
   enabled: boolean("enabled").notNull().default(false),
+  humanize: boolean("humanize").notNull().default(true),
+  skipRate: integer("skip_rate").notNull().default(0),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 

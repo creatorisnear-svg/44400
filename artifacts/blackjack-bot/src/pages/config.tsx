@@ -24,6 +24,8 @@ interface BotSettings {
   autoTransferRecipient: string;
   autoTransferIntervalMin: number;
   enabled: boolean;
+  humanize: boolean;
+  skipRate: number;
 }
 
 interface Account {
@@ -391,6 +393,34 @@ export default function ConfigPanel() {
                 </div>
               </div>
               <p className="text-xs text-gray-600">Random delay before each account claims a nuke (human-like behavior)</p>
+
+              <div className="border-t border-gray-700 pt-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs text-gray-300 font-medium">Human Mode</p>
+                    <p className="text-xs text-gray-500">Typing indicators, random jitter, shuffled order, presence rotation</p>
+                  </div>
+                  <Switch
+                    checked={form.humanize ?? true}
+                    onCheckedChange={(v) => set("humanize", v)}
+                  />
+                </div>
+                <div>
+                  <Label className="text-gray-300 text-xs mb-1 block">Skip Rate (%)</Label>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      type="number"
+                      min={0}
+                      max={100}
+                      className="bg-gray-800 border-gray-600 text-white w-24"
+                      value={form.skipRate ?? 0}
+                      onChange={(e) => set("skipRate", Math.min(100, Math.max(0, Number(e.target.value))))}
+                    />
+                    <span className="text-gray-500 text-xs">% chance each account skips a nuke</span>
+                  </div>
+                  <p className="text-xs text-gray-600 mt-1">e.g. 20 = each account skips ~1 in 5 nukes at random</p>
+                </div>
+              </div>
 
               <div className="border-t border-gray-700 pt-4 space-y-3">
                 <div className="flex items-center justify-between">
