@@ -1209,41 +1209,53 @@ class NukeBot {
 
     const channelId = (settings as any).transferChannelId || settings.channelId;
     const cloverId = settings.cloverId;
-    const prefix = (settings as any).cloverPrefix || "%";
 
     botLog.info(`💰 Refreshing balances for ${runtimes.length} account(s)...`);
 
+    // Parse balance from text — handles formats like:
+    //   "S1| 349,010.00 clover points"   (KA0SBOT /balance ephemeral reply)
+    //   "Your clover points  S1| 349,010.00 clover points"
     const parseBalanceFromText = (text: string): number | null => {
       const patterns = [
-        /(\d[\d,]*)\s*clover\s*points?/i,
-        /clover\s*points?[:\s]+(\d[\d,]*)/i,
-        /balance[:\s]+(\d[\d,]*)/i,
-        /wallet[:\s]+(\d[\d,]*)/i,
-        /you\s+have\s+(\d[\d,]*)/i,
-        /(\d[\d,]*)\s+clover/i,
-        /(\d[\d,]*)\s+scrap/i,
-        /\*\*(\d[\d,]*)\*\*/,
-        /`(\d[\d,]*)`/,
-        /(\d[\d,]*)\s+points?/i,
+        // Primary: digits (with optional commas/decimals) before "clover points"
+        /([\d,]+(?:\.\d+)?)\s*clover\s*points?/i,
+        /clover\s*points?[:\s]+([\d,]+(?:\.\d+)?)/i,
+        // Embed field patterns
+        /S\d+\s*\|\s*([\d,]+(?:\.\d+)?)/i,
+        /balance[:\s]+([\d,]+(?:\.\d+)?)/i,
+        /wallet[:\s]+([\d,]+(?:\.\d+)?)/i,
+        /you\s+have\s+([\d,]+(?:\.\d+)?)/i,
+        /\*\*([\d,]+(?:\.\d+)?)\*\*/,
+        /`([\d,]+(?:\.\d+)?)`/,
       ];
       for (const p of patterns) {
         const m = text.match(p);
         if (m) {
-          const val = parseInt(m[1].replace(/,/g, ""), 10);
+          const val = Math.floor(parseFloat(m[1].replace(/,/g, "")));
           if (!isNaN(val) && val >= 0) return val;
         }
       }
       return null;
     };
 
-    const extractBalanceText = (msg: any): string => {
-      if (!msg) return "";
-      return [
-        msg.content ?? "",
-        ...(msg.embeds ?? []).map((e: any) =>
-          `${e.title ?? ""} ${e.description ?? ""} ${(e.fields ?? []).map((f: any) => `${f.name} ${f.value}`).join(" ")}`
-        ),
-      ].join(" ");
+    // Flatten all text out of a message/interaction object
+    const extractAllText = (obj: any): string => {
+      if (!obj) return "";
+      const parts: string[] = [];
+      const dig = (o: any) => {
+        if (!o || typeof o !== "object") return;
+        if (typeof o.content === "string") parts.push(o.content);
+        if (typeof o.description === "string") parts.push(o.description);
+        if (typeof o.title === "string") parts.push(o.title);
+        if (typeof o.value === "string") parts.push(o.value);
+        if (typeof o.name === "string" && typeof o.value !== "undefined") parts.push(o.name);
+        for (const key of ["embeds", "fields", "components", "message", "data"]) {
+          if (Array.isArray(o[key])) o[key].forEach(dig);
+          else if (o[key]) dig(o[key]);
+        }
+      };
+      dig(obj);
+      return parts.join(" ");
     };
 
     const results: { accountId: number; label: string; balance: number | null; error?: string }[] = [];
@@ -1254,104 +1266,59 @@ class NukeBot {
 
       try {
         const client = runtime.client!;
-        const channel = client.channels.cache.get(channelId);
-        if (!channel || !(channel as any).isText()) {
-          throw new Error(`Channel ${channelId} not accessible for ${runtime.label}`);
+
+        // Find any accessible text channel — prefer nuke channel, fall back to any cached channel
+        let channel = client.channels.cache.get(channelId) as any;
+        if (!channel?.isText?.()) {
+          // Try any cached text channel in the target guild
+          const settings2 = settings as any;
+          const guildId = settings2.serverId ?? settings2.guildId ?? settings.serverId;
+          if (guildId) {
+            channel = client.channels.cache.find(
+              (c: any) => c.guildId === guildId && c.isText?.()
+            ) as any;
+          }
+        }
+        if (!channel) throw new Error(`No accessible text channel found for ${runtime.label}`);
+
+        botLog.info(`[${runtime.label}] 💰 Sending /balance via sendSlash in channel ${channel.id}...`, runtime.accountId);
+
+        // /balance returns an EPHEMERAL reply — it comes back directly from sendSlash,
+        // not as a messageCreate event (ephemeral messages are only visible to the invoker).
+        const resp = await (channel as any).sendSlash(cloverId, "balance");
+
+        // Dump the full response structure so we can see where the data lives
+        const fullText = extractAllText(resp);
+        botLog.info(`[${runtime.label}] 💰 sendSlash resp text: "${fullText.slice(0, 300)}"`, runtime.accountId);
+
+        // Also check common wrapper shapes
+        const candidates = [
+          resp,
+          resp?.message,
+          resp?.data,
+          resp?.interaction,
+        ].filter(Boolean);
+
+        let parsedBalance: number | null = null;
+        for (const c of candidates) {
+          const t = extractAllText(c);
+          parsedBalance = parseBalanceFromText(t);
+          if (parsedBalance !== null) break;
         }
 
-        botLog.info(`[${runtime.label}] 💰 Requesting balance... (channelId=${channelId} cloverId=${cloverId})`, runtime.accountId);
-
-        // Listen for KA0SBOT's reply BEFORE sending the command
-        const balancePromise = new Promise<number | null>((resolve) => {
-          let resolved = false;
-          const done = (val: number | null) => {
-            if (resolved) return;
-            resolved = true;
-            client.off("messageCreate", msgHandler);
-            client.off("raw", rawHandler);
-            resolve(val);
-          };
-
-          const timer = setTimeout(() => done(null), 12000);
-
-          const tryParse = (text: string, source: string): boolean => {
-            // Skip the command echo itself
-            if (text.trim().startsWith(prefix + "balance") || text.trim().startsWith("/balance")) return false;
-            const val = parseBalanceFromText(text);
-            botLog.info(`[${runtime.label}] 💰 [${source}] got text (len=${text.length}): "${text.slice(0, 120)}" → parsed=${val}`, runtime.accountId);
-            if (val !== null && val >= 0) {
-              clearTimeout(timer);
-              done(val);
-              return true;
-            }
-            return false;
-          };
-
-          function msgHandler(m: any) {
-            const mCh = m.channelId ?? m.channel_id;
-            const mAuth = m.author?.id;
-            botLog.info(`[${runtime.label}] 💰 messageCreate ch=${mCh} author=${mAuth}`, runtime.accountId);
-            if (mCh !== channelId) return;
-            if (cloverId && mAuth !== cloverId) return;
-            tryParse(extractBalanceText(m), "messageCreate");
-          }
-
-          function rawHandler(packet: any) {
-            const t = packet.t;
-            if (!["MESSAGE_CREATE", "INTERACTION_SUCCESS", "INTERACTION_CREATE", "MESSAGE_UPDATE"].includes(t)) return;
-            const d = packet.d ?? packet;
-            const pCh = d.channel_id ?? d.channelId;
-            const authorId = d.author?.id ?? d.member?.user?.id ?? d.user?.id;
-            botLog.info(`[${runtime.label}] 💰 raw ${t} ch=${pCh} author=${authorId}`, runtime.accountId);
-            if (pCh !== channelId) return;
-            if (cloverId && authorId && authorId !== cloverId) return;
-            const msgData = d.message ?? d;
-            tryParse(extractBalanceText(msgData), `raw:${t}`);
-          }
-
-          client.on("messageCreate", msgHandler);
-          client.on("raw", rawHandler);
-        });
-
-        // Try sendSlash first; fall back to text command
-        let slashOk = false;
-        if (cloverId) {
+        // Last resort: parse the raw JSON dump
+        if (parsedBalance === null && resp) {
           try {
-            botLog.info(`[${runtime.label}] 💰 Trying sendSlash balance...`, runtime.accountId);
-            const resp = await (channel as any).sendSlash(cloverId, "balance");
-            slashOk = true;
-            botLog.info(`[${runtime.label}] 💰 sendSlash returned, keys=${resp ? Object.keys(resp).join(",") : "null"}`, runtime.accountId);
-            // sendSlash may return the reply directly (ephemeral)
-            const directText = extractBalanceText(resp?.message ?? resp);
-            const directVal = parseBalanceFromText(directText);
-            if (directVal !== null) {
-              botLog.info(`[${runtime.label}] 💰 Balance from slash response: ${directVal.toLocaleString()}`, runtime.accountId);
-              await db.update(accountsTable).set({ balance: directVal, updatedAt: new Date() })
-                .where(eq(accountsTable.id, runtime.accountId)).catch(() => {});
-              results.push({ accountId: runtime.accountId, label: runtime.label, balance: directVal });
-              continue;
-            }
-            botLog.warn(`[${runtime.label}] 💰 sendSlash returned but couldn't parse value, waiting for messageCreate...`, runtime.accountId);
-          } catch (slashErr) {
-            slashOk = false;
-            botLog.warn(`[${runtime.label}] 💰 sendSlash failed: ${(slashErr as Error).message}, falling back to text`, runtime.accountId);
-          }
+            parsedBalance = parseBalanceFromText(JSON.stringify(resp));
+          } catch {}
         }
-
-        if (!slashOk) {
-          const cmd = `${prefix}balance`;
-          await (channel as any).send(cmd);
-          botLog.info(`[${runtime.label}] 💰 Sent text command: ${cmd}`, runtime.accountId);
-        }
-
-        const parsedBalance = await balancePromise;
 
         if (parsedBalance !== null) {
           await db.update(accountsTable).set({ balance: parsedBalance, updatedAt: new Date() })
             .where(eq(accountsTable.id, runtime.accountId)).catch(() => {});
           botLog.info(`[${runtime.label}] 💰 Balance updated: ${parsedBalance.toLocaleString()}`, runtime.accountId);
         } else {
-          botLog.warn(`[${runtime.label}] 💰 No balance reply received within 8s`, runtime.accountId);
+          botLog.warn(`[${runtime.label}] 💰 Could not parse balance. Raw resp keys: ${resp ? Object.keys(resp).join(", ") : "null"}`, runtime.accountId);
         }
 
         results.push({ accountId: runtime.accountId, label: runtime.label, balance: parsedBalance });
