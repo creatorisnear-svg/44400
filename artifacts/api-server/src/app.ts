@@ -41,7 +41,7 @@ if (process.env.NODE_ENV === "production") {
   const __dirname = path.dirname(fileURLToPath(import.meta.url));
   const staticDir =
     process.env.STATIC_DIR ||
-    path.resolve(__dirname, "../../artifacts/blackjack-bot/dist/public");
+    path.resolve(__dirname, "../../blackjack-bot/dist/public");
 
   app.use(express.static(staticDir));
   app.get(/.*/, (_req, res) => {

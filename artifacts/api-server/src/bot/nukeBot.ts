@@ -850,6 +850,91 @@ class NukeBot {
     botLog.info(`💸 Transfer complete. Total sent: ${total} scrap to ${toUsername}`);
     return results;
   }
+
+  async refreshBalances(): Promise<{ accountId: number; label: string; balance: number | null; error?: string }[]> {
+    const [settings] = await db.select().from(botSettingsTable).limit(1);
+    if (!settings) throw new Error("Bot settings not configured.");
+
+    const runtimes = [...this.runtimes.values()].filter(
+      (r) => r.status === "connected" && r.client,
+    );
+    if (runtimes.length === 0) throw new Error("No connected accounts. Start the bot first.");
+
+    const transferChannelId = (settings as any).transferChannelId || settings.channelId;
+    const balanceCmd = "/balance";
+
+    botLog.info(`💰 Refreshing balances for ${runtimes.length} account(s)...`);
+
+    const results = await Promise.all(
+      runtimes.map(async (runtime, idx) => {
+        if (idx > 0) await delay(1500 * idx);
+
+        try {
+          const channel = runtime.client!.channels.cache.get(transferChannelId);
+          if (!channel || !(channel as any).isText()) {
+            throw new Error(`Channel ${transferChannelId} not accessible`);
+          }
+
+          await (channel as any).send(balanceCmd);
+          await delay(3000);
+
+          const recent = await (channel as any).messages.fetch({ limit: 10 }).catch(() => null);
+          if (!recent) throw new Error("Could not fetch messages");
+
+          let parsedBalance: number | null = null;
+          const cloverId = settings.cloverId;
+
+          for (const [, msg] of recent) {
+            if (cloverId && msg.author.id !== cloverId) continue;
+            const fullText = [
+              msg.content,
+              ...msg.embeds.map((e: any) => `${e.title ?? ""} ${e.description ?? ""} ${(e.fields ?? []).map((f: any) => `${f.name} ${f.value}`).join(" ")}`),
+            ].join(" ");
+
+            const patterns = [
+              /balance[:\s]+(\d[\d,]*)/i,
+              /wallet[:\s]+(\d[\d,]*)/i,
+              /you\s+have\s+(\d[\d,]*)/i,
+              /(\d[\d,]*)\s+clover/i,
+              /(\d[\d,]*)\s+scrap/i,
+              /(\d[\d,]*)\s+points?/i,
+              /\*\*(\d[\d,]*)\*\*/,
+              /`(\d[\d,]*)`/,
+            ];
+
+            for (const p of patterns) {
+              const m = fullText.match(p);
+              if (m) {
+                const val = parseInt(m[1].replace(/,/g, ""), 10);
+                if (!isNaN(val)) { parsedBalance = val; break; }
+              }
+            }
+            if (parsedBalance !== null) break;
+          }
+
+          if (parsedBalance !== null) {
+            await db.update(accountsTable).set({
+              balance: parsedBalance,
+              updatedAt: new Date(),
+            }).where(eq(accountsTable.id, runtime.accountId)).catch(() => {});
+            botLog.info(`[${runtime.label}] 💰 Balance updated: ${parsedBalance.toLocaleString()}`, runtime.accountId);
+          } else {
+            botLog.warn(`[${runtime.label}] Could not parse balance from bot reply`, runtime.accountId);
+          }
+
+          return { accountId: runtime.accountId, label: runtime.label, balance: parsedBalance };
+        } catch (err) {
+          const errMsg = (err as Error).message;
+          botLog.error(`[${runtime.label}] Balance refresh failed: ${errMsg}`, runtime.accountId);
+          return { accountId: runtime.accountId, label: runtime.label, balance: null, error: errMsg };
+        }
+      }),
+    );
+
+    const updated = results.filter((r) => r.balance !== null).length;
+    botLog.info(`✅ Balance refresh done. Updated ${updated}/${runtimes.length} accounts.`);
+    return results;
+  }
 }
 
 export const nukeBot = new NukeBot();

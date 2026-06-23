@@ -126,6 +126,15 @@ router.post("/transfer/fill/cancel", async (_req, res) => {
   return res.json({ ok: true });
 });
 
+router.post("/accounts/refresh-balances", async (_req, res) => {
+  try {
+    const results = await nukeBot.refreshBalances();
+    return res.json({ results });
+  } catch (err) {
+    return res.status(400).json({ error: (err as Error).message });
+  }
+});
+
 router.get("/transfers", async (req, res) => {
   const limit = Math.min(Number(req.query.limit) || 50, 200);
   const rows = await db

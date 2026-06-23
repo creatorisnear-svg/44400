@@ -22,6 +22,7 @@ import {
   WifiOff,
   Loader2,
   Send,
+  RefreshCw,
 } from "lucide-react";
 import ConfigPanel from "./config";
 import EventsAndTransfers from "./sessions";
@@ -347,6 +348,45 @@ function TransferPanel({ fillOrder }: { fillOrder: any }) {
   );
 }
 
+function RefreshBalancesButton({ onDone }: { onDone: () => void }) {
+  const [result, setResult] = useState<string | null>(null);
+  const mut = useMutation({
+    mutationFn: () => apiFetch("/api/accounts/refresh-balances", { method: "POST" }),
+    onSuccess: (data) => {
+      onDone();
+      const updated = (data.results ?? []).filter((r: any) => r.balance !== null).length;
+      const total = (data.results ?? []).length;
+      setResult(`✓ Updated ${updated}/${total}`);
+      setTimeout(() => setResult(null), 4000);
+    },
+    onError: (e) => {
+      setResult(`✗ ${(e as Error).message}`);
+      setTimeout(() => setResult(null), 4000);
+    },
+  });
+
+  return (
+    <div className="flex items-center gap-2">
+      {result && (
+        <span className={`text-xs ${result.startsWith("✓") ? "text-green-400" : "text-red-400"}`}>
+          {result}
+        </span>
+      )}
+      <Button
+        size="sm"
+        variant="outline"
+        className="h-7 px-3 text-xs border-gray-600 text-gray-300 hover:text-white hover:border-gray-400"
+        onClick={() => mut.mutate()}
+        disabled={mut.isPending}
+        title="Sends /balance to each account and parses the bot reply"
+      >
+        <RefreshCw className={`w-3 h-3 mr-1.5 ${mut.isPending ? "animate-spin" : ""}`} />
+        {mut.isPending ? "Refreshing..." : "Refresh Balances"}
+      </Button>
+    </div>
+  );
+}
+
 export default function Dashboard() {
   const qc = useQueryClient();
   const { data: status } = useStatus();
@@ -559,6 +599,10 @@ export default function Dashboard() {
 
           <TabsContent value="accounts">
             <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-gray-500">{accounts.length} account(s)</span>
+                <RefreshBalancesButton onDone={() => qc.invalidateQueries({ queryKey: ["accounts"] })} />
+              </div>
               {accounts.length === 0 ? (
                 <Card className="bg-gray-900 border-gray-700">
                   <CardContent className="py-8 text-center text-gray-600">
