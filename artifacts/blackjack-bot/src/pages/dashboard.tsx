@@ -157,6 +157,9 @@ function FillOrderCountdown({ target }: { target: number }) {
   return <span>{m}m {String(s).padStart(2, "0")}s</span>;
 }
 
+const TAX_RATE = 0.20;
+const net = (gross: number) => Math.floor(gross * (1 - TAX_RATE));
+
 function TransferPanel({ fillOrder }: { fillOrder: any }) {
   const qc = useQueryClient();
   const [toUsername, setToUsername] = useState("");
@@ -186,6 +189,7 @@ function TransferPanel({ fillOrder }: { fillOrder: any }) {
   };
 
   const activeFill = fillOrder && !fillOrder.done;
+  const grossAmount = Number(amount) || 0;
 
   const stepIcon = (status: string) => {
     if (status === "sent") return <CheckCircle2 className="w-3 h-3 text-green-400 shrink-0" />;
@@ -218,7 +222,7 @@ function TransferPanel({ fillOrder }: { fillOrder: any }) {
               </div>
             </div>
             <div>
-              <Label className="text-xs text-gray-400 mb-1 block">Total Amount to Send</Label>
+              <Label className="text-xs text-gray-400 mb-1 block">Total Amount to Send (gross)</Label>
               <Input
                 type="number"
                 min={1}
@@ -227,8 +231,24 @@ function TransferPanel({ fillOrder }: { fillOrder: any }) {
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
               />
+              {grossAmount > 0 && (
+                <div className="mt-2 p-2 bg-gray-800 rounded text-xs space-y-1">
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">You send</span>
+                    <span className="text-white font-mono">{grossAmount.toLocaleString()}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-yellow-500">Clover tax (20%)</span>
+                    <span className="text-yellow-400 font-mono">−{Math.floor(grossAmount * TAX_RATE).toLocaleString()}</span>
+                  </div>
+                  <div className="flex justify-between border-t border-gray-700 pt-1">
+                    <span className="text-green-400">Recipient receives</span>
+                    <span className="text-green-400 font-mono font-bold">{net(grossAmount).toLocaleString()}</span>
+                  </div>
+                </div>
+              )}
               <p className="text-xs text-gray-600 mt-1">
-                Accounts fill in order — each waits 10 min before the next sends
+                Accounts fill in order — 10 min delay between each
               </p>
             </div>
             {error && (
@@ -260,14 +280,20 @@ function TransferPanel({ fillOrder }: { fillOrder: any }) {
               </Button>
             </div>
 
-            <div className="bg-gray-800 rounded-lg p-3 space-y-1">
-              <div className="flex justify-between text-xs mb-2">
-                <span className="text-gray-400">Progress</span>
+            <div className="bg-gray-800 rounded-lg p-3 space-y-1.5">
+              <div className="flex justify-between text-xs">
+                <span className="text-gray-400">Sent (gross)</span>
                 <span className="text-white font-mono">
                   {fillOrder.totalSent.toLocaleString()} / {fillOrder.totalRequested.toLocaleString()}
                 </span>
               </div>
-              <div className="w-full bg-gray-700 rounded-full h-1.5">
+              <div className="flex justify-between text-xs">
+                <span className="text-green-500">Received (after 20% tax)</span>
+                <span className="text-green-400 font-mono font-bold">
+                  {net(fillOrder.totalSent).toLocaleString()} / {net(fillOrder.totalRequested).toLocaleString()}
+                </span>
+              </div>
+              <div className="w-full bg-gray-700 rounded-full h-1.5 mt-1">
                 <div
                   className="bg-blue-500 h-1.5 rounded-full transition-all"
                   style={{ width: `${Math.min(100, (fillOrder.totalSent / fillOrder.totalRequested) * 100)}%` }}
@@ -277,12 +303,18 @@ function TransferPanel({ fillOrder }: { fillOrder: any }) {
 
             <div className="space-y-1.5">
               {fillOrder.steps?.map((step: any, i: number) => (
-                <div key={i} className="flex items-center gap-2 text-xs p-2 bg-gray-800 rounded">
-                  {stepIcon(step.status)}
-                  <span className="text-gray-300 flex-1">{step.label}</span>
-                  <span className="text-gray-500 font-mono">{step.amount.toLocaleString()}</span>
-                  {step.status === "sent" && <span className="text-green-400">✓</span>}
-                  {step.status === "error" && <span className="text-red-400">{step.error}</span>}
+                <div key={i} className="flex flex-col gap-0.5 text-xs p-2 bg-gray-800 rounded">
+                  <div className="flex items-center gap-2">
+                    {stepIcon(step.status)}
+                    <span className="text-gray-300 flex-1">{step.label}</span>
+                    <div className="text-right shrink-0">
+                      <div className="text-gray-400 font-mono">{step.amount.toLocaleString()} sent</div>
+                      <div className="text-green-400 font-mono">{net(step.amount).toLocaleString()} rcvd</div>
+                    </div>
+                  </div>
+                  {step.status === "error" && (
+                    <span className="text-red-400 pl-5">{step.error}</span>
+                  )}
                 </div>
               ))}
             </div>
@@ -298,8 +330,16 @@ function TransferPanel({ fillOrder }: { fillOrder: any }) {
         )}
 
         {fillOrder?.done && (
-          <div className="p-2 bg-green-900/30 border border-green-700 rounded text-xs text-green-300 text-center">
-            ✅ Fill order complete — {fillOrder.totalSent.toLocaleString()} sent to @{fillOrder.toUsername}
+          <div className="p-3 bg-green-900/30 border border-green-700 rounded text-xs text-green-300 space-y-1">
+            <div className="text-center font-medium">✅ Fill order complete</div>
+            <div className="flex justify-between">
+              <span className="text-gray-400">Sent to @{fillOrder.toUsername}</span>
+              <span className="font-mono">{fillOrder.totalSent.toLocaleString()}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-green-400">Recipient received</span>
+              <span className="text-green-400 font-mono font-bold">{net(fillOrder.totalSent).toLocaleString()}</span>
+            </div>
           </div>
         )}
       </CardContent>
