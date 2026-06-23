@@ -13,6 +13,27 @@ import { getLogs } from "../bot/logger.js";
 
 const router: IRouter = Router();
 
+router.post("/accounts/validate-token", async (req, res) => {
+  const { token } = req.body ?? {};
+  if (!token || typeof token !== "string") return res.status(400).json({ error: "token is required" });
+
+  try {
+    const r = await fetch("https://discord.com/api/v10/users/@me", {
+      headers: { Authorization: token.trim() },
+    });
+    if (!r.ok) return res.status(400).json({ error: `Discord rejected token (${r.status} ${r.statusText})` });
+
+    const data: any = await r.json();
+    const avatarUrl = data.avatar
+      ? `https://cdn.discordapp.com/avatars/${data.id}/${data.avatar}.png?size=64`
+      : `https://cdn.discordapp.com/embed/avatars/${Number(data.discriminator || 0) % 5}.png`;
+
+    return res.json({ id: data.id, username: data.username, globalName: data.global_name, avatarUrl });
+  } catch (err) {
+    return res.status(500).json({ error: (err as Error).message });
+  }
+});
+
 router.get("/accounts", async (_req, res) => {
   const accounts = await db.select().from(accountsTable).orderBy(accountsTable.id);
   const status = nukeBot.getStatus();

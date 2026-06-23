@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { Save, AlertTriangle, RefreshCw } from "lucide-react";
+import { Save, AlertTriangle, RefreshCw, ShieldCheck, XCircle } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 
 interface BotSettings {
@@ -382,6 +382,83 @@ export default function ConfigPanel() {
           </p>
         </CardContent>
       </Card>
+
+      <TokenValidator />
     </div>
+  );
+}
+
+function TokenValidator() {
+  const [token, setToken] = useState("");
+  const [result, setResult] = useState<{ username: string; globalName: string | null; avatarUrl: string; id: string } | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+
+  const mut = useMutation({
+    mutationFn: () => apiFetch("/api/accounts/validate-token", { method: "POST", body: JSON.stringify({ token }) }),
+    onSuccess: (data) => { setResult(data); setErr(null); },
+    onError: (e) => { setErr((e as Error).message); setResult(null); },
+  });
+
+  return (
+    <Card className="bg-gray-900 border-gray-700">
+      <CardHeader>
+        <CardTitle className="text-white text-base flex items-center gap-2">
+          <ShieldCheck className="w-4 h-4 text-blue-400" />
+          Token Validator
+        </CardTitle>
+        <CardDescription className="text-gray-500 text-xs">
+          Paste a Discord token to verify it works before adding it to your env var.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <div className="flex gap-2">
+          <Input
+            className="bg-gray-800 border-gray-600 text-white font-mono text-xs flex-1"
+            placeholder="mfa.xxxxxxxxxxxxxxxxxxxxxxxxxx"
+            value={token}
+            onChange={(e) => { setToken(e.target.value); setResult(null); setErr(null); }}
+            type="password"
+          />
+          <Button
+            size="sm"
+            onClick={() => mut.mutate()}
+            disabled={!token.trim() || mut.isPending}
+            className="bg-blue-600 hover:bg-blue-700 text-white shrink-0"
+          >
+            {mut.isPending ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : "Check"}
+          </Button>
+        </div>
+
+        {result && (
+          <div className="flex items-center gap-3 p-3 bg-green-950 border border-green-800 rounded-lg">
+            <img src={result.avatarUrl} alt="avatar" className="w-10 h-10 rounded-full shrink-0" />
+            <div className="min-w-0">
+              <p className="text-green-300 font-semibold text-sm">✓ Valid token</p>
+              <p className="text-white text-sm font-medium truncate">{result.globalName ?? result.username}</p>
+              <p className="text-gray-400 text-xs font-mono">@{result.username} · {result.id}</p>
+            </div>
+          </div>
+        )}
+
+        {err && (
+          <div className="flex items-center gap-2 p-3 bg-red-950 border border-red-800 rounded-lg">
+            <XCircle className="w-4 h-4 text-red-400 shrink-0" />
+            <div>
+              <p className="text-red-300 text-sm font-semibold">Invalid token</p>
+              <p className="text-red-400 text-xs">{err}</p>
+            </div>
+          </div>
+        )}
+
+        {result && (
+          <div className="p-3 bg-gray-800 rounded-lg">
+            <p className="text-gray-400 text-xs mb-1">Add this to your <span className="font-mono text-gray-300">DISCORD_ACCOUNTS</span> env var:</p>
+            <p className="font-mono text-xs text-yellow-300 break-all select-all">
+              {result.globalName ?? result.username}:{token}
+            </p>
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }
