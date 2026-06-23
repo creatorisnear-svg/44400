@@ -29,6 +29,7 @@ interface BotSettings {
   claimDelayMin: number;
   claimDelayMax: number;
   transferServer: number;
+  transferChannelId: string;
   autoTransferEnabled: boolean;
   autoTransferRecipient: string;
   autoTransferIntervalMin: number;
@@ -381,6 +382,19 @@ export default function ConfigPanel() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
+                <Label className="text-gray-300 text-xs mb-1 block">Transfer Channel ID</Label>
+                <Input
+                  className="bg-gray-800 border-gray-600 text-white"
+                  placeholder="Leave blank to use Nuke Channel"
+                  value={form.transferChannelId ?? ""}
+                  onChange={(e) => set("transferChannelId", e.target.value)}
+                />
+                <p className="text-xs text-gray-600 mt-1">
+                  Channel where <span className="font-mono">/transfer</span> commands are sent. Right-click channel → Copy ID.
+                </p>
+              </div>
+
+              <div>
                 <Label className="text-gray-300 text-xs mb-1 block">Transfer Command</Label>
                 <Input
                   className="bg-gray-800 border-gray-600 text-white"
@@ -389,7 +403,7 @@ export default function ConfigPanel() {
                   onChange={(e) => set("giveCommand", e.target.value)}
                 />
                 <p className="text-xs text-gray-600 mt-1">
-                  Base command — will send: <span className="text-gray-400 font-mono">{form.giveCommand ?? "/transfer"} recipient:@USER amount: AMOUNT server: N</span>
+                  Sends: <span className="text-gray-400 font-mono">{form.giveCommand ?? "/transfer"} recipient:@USER amount: AMOUNT server: N</span>
                 </p>
               </div>
 

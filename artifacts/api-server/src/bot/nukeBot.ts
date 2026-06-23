@@ -202,10 +202,22 @@ class NukeBot {
       return;
     }
 
+    const intervalMs = ((settings as any).autoTransferIntervalMin ?? 10) * 60 * 1000;
+    const transferChannelId = (settings as any).transferChannelId || settings.channelId;
+
     let totalSent = 0;
     let successCount = 0;
 
-    for (const runtime of runtimes) {
+    for (let i = 0; i < runtimes.length; i++) {
+      const runtime = runtimes[i];
+
+      if (i > 0) {
+        botLog.info(
+          `⏱ Auto-transfer: waiting ${(settings as any).autoTransferIntervalMin ?? 10} min before next account...`,
+        );
+        await delay(intervalMs);
+      }
+
       const dbAccount = await db
         .select()
         .from(accountsTable)
@@ -218,22 +230,20 @@ class NukeBot {
         continue;
       }
 
-      const staggerMs = Math.floor(Math.random() * 90_000) + 30_000;
       botLog.info(
-        `[${runtime.label}] Auto-transfer: waiting ${Math.round(staggerMs / 1000)}s before sending ${balance.toLocaleString()} scrap...`,
+        `[${runtime.label}] Auto-transfer: sending ${balance.toLocaleString()} → @${recipient}`,
         runtime.accountId,
       );
-      await delay(staggerMs);
 
       try {
-        const channel = runtime.client!.channels.cache.get(settings.channelId);
-        if (!channel || !channel.isText()) throw new Error("Channel not accessible");
+        const channel = runtime.client!.channels.cache.get(transferChannelId);
+        if (!channel || !channel.isText()) throw new Error(`Transfer channel ${transferChannelId} not accessible`);
 
         const server = (settings as any).transferServer ?? 1;
         const cmd = `${settings.giveCommand} recipient:@${recipient} amount: ${balance} server: ${server}`;
         await (channel as any).send(cmd);
 
-        botLog.info(`[${runtime.label}] Auto-transfer sent: ${balance.toLocaleString()} → @${recipient}`, runtime.accountId);
+        botLog.info(`[${runtime.label}] ✓ Sent ${balance.toLocaleString()} → @${recipient}`, runtime.accountId);
 
         await db
           .update(accountsTable)
