@@ -1262,7 +1262,7 @@ class NukeBot {
 
     for (let idx = 0; idx < runtimes.length; idx++) {
       const runtime = runtimes[idx];
-      if (idx > 0) await delay(3000);
+      if (idx > 0) await delay(20_000);
 
       try {
         const client = runtime.client!;
