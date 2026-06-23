@@ -7,8 +7,9 @@ import { requireAuth } from "../middlewares/auth";
 const router: IRouter = Router();
 
 router.use("/auth", authRouter);
-router.use(requireAuth);
 router.use(healthRouter);
+
+router.use(requireAuth);
 router.use(botRouter);
 
 export default router;
