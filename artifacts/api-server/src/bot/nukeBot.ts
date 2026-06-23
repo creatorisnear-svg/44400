@@ -534,54 +534,62 @@ class NukeBot {
     const client = new Client();
     runtime.client = client;
 
-    const loginPromise = new Promise<void>((resolve, reject) => {
-      const timeout = setTimeout(() => reject(new Error("Login timeout")), 30000);
-      client.once("ready", () => {
-        clearTimeout(timeout);
-        runtime.status = "connected";
-        runtime.username = client.user?.username ?? null;
-
-        db.update(accountsTable)
-          .set({ username: runtime.username, updatedAt: new Date() })
-          .where(eq(accountsTable.id, account.id))
-          .catch(() => {});
-
-        botLog.info(`[${account.label}] logged in as ${runtime.username}`, account.id);
-
-        // Randomize presence so accounts don't all appear identical/always-online
-        const humanize = (settings as any).humanize ?? true;
-        if (humanize) {
-          const statuses: Array<"online" | "idle" | "dnd"> = ["online", "online", "online", "idle"];
-          const chosenStatus = statuses[Math.floor(Math.random() * statuses.length)];
-          try {
-            client.user?.setStatus(chosenStatus);
-          } catch {}
-
-          // Rotate presence every 10–25 minutes to look like a real user
-          const rotateStatus = () => {
-            if (!runtime.client) return;
-            const next = statuses[Math.floor(Math.random() * statuses.length)];
-            try { client.user?.setStatus(next); } catch {}
-            const nextIn = (10 + Math.random() * 15) * 60 * 1000;
-            setTimeout(rotateStatus, nextIn);
-          };
-          setTimeout(rotateStatus, (10 + Math.random() * 15) * 60 * 1000);
-        }
-
-        resolve();
-      });
-      client.once("error", (err) => {
-        clearTimeout(timeout);
-        reject(err);
-      });
-    });
-
+    // Single promise covers both client.login() AND the ready event so
+    // the timeout is guaranteed to be cleared no matter which path resolves/rejects first.
+    // Previously, client.login() throwing early left the 30s timeout dangling → unhandled rejection → crash.
     try {
-      await client.login(account.token);
-      await loginPromise;
+      await new Promise<void>((resolve, reject) => {
+        let settled = false;
+        const done = (err?: Error) => {
+          if (settled) return;
+          settled = true;
+          clearTimeout(timeout);
+          if (err) reject(err);
+          else resolve();
+        };
+
+        const timeout = setTimeout(() => done(new Error("Login timeout")), 30000);
+
+        client.once("ready", () => {
+          runtime.status = "connected";
+          runtime.username = client.user?.username ?? null;
+
+          db.update(accountsTable)
+            .set({ username: runtime.username, updatedAt: new Date() })
+            .where(eq(accountsTable.id, account.id))
+            .catch(() => {});
+
+          botLog.info(`[${account.label}] logged in as ${runtime.username}`, account.id);
+
+          // Randomize presence so accounts don't all appear identical/always-online
+          const humanize = (settings as any).humanize ?? true;
+          if (humanize) {
+            const statuses: Array<"online" | "idle" | "dnd"> = ["online", "online", "online", "idle"];
+            const chosenStatus = statuses[Math.floor(Math.random() * statuses.length)];
+            try { client.user?.setStatus(chosenStatus); } catch {}
+
+            // Rotate presence every 10–25 minutes to look like a real user
+            const rotateStatus = () => {
+              if (!runtime.client) return;
+              const next = statuses[Math.floor(Math.random() * statuses.length)];
+              try { client.user?.setStatus(next); } catch {}
+              setTimeout(rotateStatus, (10 + Math.random() * 15) * 60 * 1000);
+            };
+            setTimeout(rotateStatus, (10 + Math.random() * 15) * 60 * 1000);
+          }
+
+          done();
+        });
+
+        client.once("error", (err) => done(err));
+
+        // client.login() itself can throw synchronously or return a rejected promise
+        client.login(account.token).catch((err: Error) => done(err));
+      });
     } catch (err) {
       runtime.status = "error";
       botLog.error(`[${account.label}] login failed: ${(err as Error).message}`, account.id);
+      try { client.destroy(); } catch {}
       return;
     }
 
