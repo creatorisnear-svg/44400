@@ -723,6 +723,16 @@ class NukeBot {
           (c: any) => (SELECT_TYPES.includes(c.type) || c.type === 3) && !c.disabled,
         );
 
+        // Helper: extract scrap amount from an interaction response message/object
+        const extractAmountFromResponse = (resp: any): number => {
+          if (!resp) return 0;
+          const text = [
+            resp.content ?? "",
+            ...(resp.embeds ?? []).map((e: any) => `${e.title ?? ""} ${e.description ?? ""}`),
+          ].join(" ");
+          return parseScrapFromText(text);
+        };
+
         if (selectComp) {
           try {
             const options: any[] = selectComp.options ?? [];
@@ -737,10 +747,37 @@ class NukeBot {
             ) ?? options[0];
 
             if (targetOption) {
-              // Use Message.selectMenu(customId, [value]) — the correct selfbot-v13 API
-              await msg.selectMenu(selectComp.customId, [targetOption.value]);
+              // selectMenu() returns the interaction response (ephemeral message from KA0SBOT)
+              const resp = await msg.selectMenu(selectComp.customId, [targetOption.value]);
               interactionSent = true;
               botLog.info(`[${runtime.label}] ✓ selected "${targetOption.label}"`, runtime.accountId);
+
+              // Try to parse amount directly from the interaction response
+              const directAmount = extractAmountFromResponse(resp);
+              if (directAmount > 0) {
+                scrapGained = directAmount;
+                success = true;
+                runtime.claimsThisSession++;
+                runtime.scrapThisSession += scrapGained;
+                botLog.info(`[${runtime.label}] ✓ claimed! +${scrapGained.toLocaleString()} clover points`, runtime.accountId);
+                const [dbAcc] = await db.select().from(accountsTable).where(eq(accountsTable.id, runtime.accountId));
+                if (dbAcc) {
+                  await db.update(accountsTable).set({
+                    balance: (dbAcc.balance ?? 0) + scrapGained,
+                    totalClaimed: (dbAcc.totalClaimed ?? 0) + scrapGained,
+                    updatedAt: new Date(),
+                  }).where(eq(accountsTable.id, runtime.accountId)).catch(() => {});
+                }
+                return { success, scrapGained, alreadyClaimed, error };
+              }
+
+              // Check already-claimed in direct response
+              const respText = [resp?.content ?? "", ...(resp?.embeds ?? []).map((e: any) => `${e.title ?? ""} ${e.description ?? ""}`)].join(" ");
+              if (/already\s+claimed/i.test(respText)) {
+                alreadyClaimed = true;
+                botLog.info(`[${runtime.label}] ℹ️ Already claimed this nuke`, runtime.accountId);
+                return { success, scrapGained, alreadyClaimed, error };
+              }
             } else {
               botLog.warn(`[${runtime.label}] no option for server ${targetServer}`, runtime.accountId);
             }
@@ -754,9 +791,27 @@ class NukeBot {
           );
           if (buttonComp) {
             try {
-              await msg.clickButton(buttonComp.customId);
+              const resp = await msg.clickButton(buttonComp.customId);
               interactionSent = true;
               botLog.info(`[${runtime.label}] ✓ clicked button "${buttonComp.label ?? buttonComp.customId}"`, runtime.accountId);
+
+              const directAmount = extractAmountFromResponse(resp);
+              if (directAmount > 0) {
+                scrapGained = directAmount;
+                success = true;
+                runtime.claimsThisSession++;
+                runtime.scrapThisSession += scrapGained;
+                botLog.info(`[${runtime.label}] ✓ claimed! +${scrapGained.toLocaleString()} clover points`, runtime.accountId);
+                const [dbAcc] = await db.select().from(accountsTable).where(eq(accountsTable.id, runtime.accountId));
+                if (dbAcc) {
+                  await db.update(accountsTable).set({
+                    balance: (dbAcc.balance ?? 0) + scrapGained,
+                    totalClaimed: (dbAcc.totalClaimed ?? 0) + scrapGained,
+                    updatedAt: new Date(),
+                  }).where(eq(accountsTable.id, runtime.accountId)).catch(() => {});
+                }
+                return { success, scrapGained, alreadyClaimed, error };
+              }
             } catch (btnErr) {
               botLog.warn(`[${runtime.label}] button error: ${(btnErr as Error).message}`, runtime.accountId);
             }
@@ -769,12 +824,15 @@ class NukeBot {
       }
 
       if (interactionSent) {
-        // KA0SBOT replies ephemerally — catch via messageCreate (not messages.fetch)
+        // Interaction was sent — KA0SBOT replies ephemerally so we may not receive messageCreate.
+        // The direct-response path above already returned if it parsed the amount.
+        // This fallback: wait briefly for a non-ephemeral messageCreate, then mark success anyway.
         const rawResult = await new Promise<number>((resolve) => {
           const timeoutHandle = setTimeout(() => {
             client.off("messageCreate", handler);
-            resolve(0);
-          }, 8000);
+            // Resolve with sentinel -2: "sent but couldn't parse amount"
+            resolve(-2);
+          }, 5000);
 
           function handler(m: any) {
             if (settings.cloverId && m.author.id !== settings.cloverId) return;
@@ -783,7 +841,6 @@ class NukeBot {
             const fullText = (m.content ?? "") + " " +
               (m.embeds ?? []).map((e: any) => `${e.title ?? ""} ${e.description ?? ""}`).join(" ");
 
-            // "Already claimed" response — resolve immediately with sentinel -1
             if (/already\s+claimed/i.test(fullText)) {
               clearTimeout(timeoutHandle);
               client.off("messageCreate", handler);
@@ -805,6 +862,11 @@ class NukeBot {
         if (rawResult === -1) {
           alreadyClaimed = true;
           botLog.info(`[${runtime.label}] ℹ️ Already claimed this nuke`, runtime.accountId);
+        } else if (rawResult === -2) {
+          // Interaction sent, KA0SBOT replied ephemerally — amount unknown
+          success = true;
+          runtime.claimsThisSession++;
+          botLog.info(`[${runtime.label}] ✓ claimed! (amount unknown — ephemeral response)`, runtime.accountId);
         } else {
           scrapGained = rawResult;
           success = true;
