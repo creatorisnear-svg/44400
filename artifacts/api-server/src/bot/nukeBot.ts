@@ -285,14 +285,11 @@ class NukeBot {
         const channel = runtime.client.channels.cache.get(transferChannelId);
         if (!channel || !(channel as any).isText()) throw new Error(`Channel ${transferChannelId} not accessible`);
 
-        const isSlash = settings.giveCommand.trim().startsWith("/");
-        const slashName = settings.giveCommand.trim().replace(/^\//, "");
-        if (isSlash && settings.cloverId) {
-          await (channel as any).sendSlash(settings.cloverId, slashName, `@${fo.toUsername}`, String(step.amount), String(server));
-        } else {
-          const cmd = `${settings.giveCommand} recipient:@${fo.toUsername} amount: ${step.amount} server: ${server}`;
-          await (channel as any).send(cmd);
-        }
+        await this.sendTransferAndConfirm(
+          runtime.client, channel, settings,
+          fo.toUsername, step.amount, server,
+          { label: step.label, accountId: step.accountId },
+        );
 
         step.status = "sent";
         step.sentAt = Date.now();
@@ -522,8 +519,11 @@ class NukeBot {
         if (!channel || !channel.isText()) throw new Error(`Transfer channel ${transferChannelId} not accessible`);
 
         const server = (settings as any).transferServer ?? 1;
-        const cmd = `${settings.giveCommand} recipient:@${recipient} amount: ${balance} server: ${server}`;
-        await (channel as any).send(cmd);
+        await this.sendTransferAndConfirm(
+          runtime.client!, channel, settings,
+          recipient, balance, server,
+          runtime,
+        );
 
         botLog.info(`[${runtime.label}] ✓ Sent ${balance.toLocaleString()} → @${recipient}`, runtime.accountId);
 
@@ -1243,17 +1243,12 @@ class NukeBot {
 
           const server = (settings as any).transferServer ?? 1;
 
-          if (isSlashCommand && settings.cloverId) {
-            // Slash command — use sendSlash so Discord actually routes it as an interaction.
-            // KA0SBOT's /transfer options: recipient (user mention), amount (integer), server (integer)
-            botLog.info(`[${runtime.label}] sendSlash /${slashName} @${toUsername} ${sendAmount} server:${server}`, runtime.accountId);
-            await (channel as any).sendSlash(settings.cloverId, slashName, `@${toUsername}`, String(sendAmount), String(server));
-          } else {
-            // Prefix/text command fallback
-            const cmd = `${settings.giveCommand} recipient:@${toUsername} amount: ${sendAmount} server: ${server}`;
-            botLog.info(`[${runtime.label}] send text: ${cmd}`, runtime.accountId);
-            await (channel as any).send(cmd);
-          }
+          botLog.info(`[${runtime.label}] Sending transfer ${sendAmount.toLocaleString()} → @${toUsername}`, runtime.accountId);
+          await this.sendTransferAndConfirm(
+            runtime.client!, channel, settings,
+            toUsername, sendAmount, server,
+            runtime,
+          );
 
           botLog.info(`[${runtime.label}] ✓ Transfer sent: ${sendAmount.toLocaleString()} → @${toUsername}`, runtime.accountId);
           success = true;
@@ -1335,6 +1330,86 @@ class NukeBot {
         );
       });
       await delay(60_000); // 1 minute between accounts
+    }
+  }
+
+  /**
+   * Sends a transfer slash/text command then waits for KA0SBOT's ephemeral
+   * "Confirm transfer" message and clicks the green Confirm button.
+   * Throws if the channel send fails; logs a warning if confirm times out.
+   */
+  private async sendTransferAndConfirm(
+    client: any,
+    channel: any,
+    settings: typeof botSettingsTable.$inferSelect,
+    toUsername: string,
+    amount: number,
+    server: number | string,
+    ctx: { label: string; accountId: number },
+  ): Promise<void> {
+    const isSlash = settings.giveCommand.trim().startsWith("/");
+    const slashName = settings.giveCommand.trim().replace(/^\//, "");
+
+    let resolveConfirm!: (v: boolean) => void;
+    const confirmPromise = new Promise<boolean>((res) => { resolveConfirm = res; });
+
+    const timer = setTimeout(() => {
+      client.off("messageCreate", onMsg);
+      resolveConfirm(false);
+    }, 15_000);
+
+    async function onMsg(msg: any) {
+      // Must be from the clover bot in this channel
+      if (settings.cloverId && (msg.author?.id ?? msg.authorId) !== settings.cloverId) return;
+      if ((msg.channelId ?? msg.channel_id) !== channel.id) return;
+
+      const embed = msg.embeds?.[0];
+      const title: string = embed?.title ?? embed?.data?.title ?? "";
+      if (!/confirm.{0,8}transfer/i.test(title)) return;
+
+      const confirmBtn = (msg.components ?? [])
+        .flatMap((r: any) => r.components ?? [])
+        .find((c: any) => /^confirm$/i.test(c.label ?? ""));
+      if (!confirmBtn) return;
+
+      clearTimeout(timer);
+      client.off("messageCreate", onMsg);
+
+      try {
+        await msg.clickButton(confirmBtn.customId);
+      } catch {
+        // Ephemeral interactions often throw even when they succeed
+      }
+      resolveConfirm(true);
+    }
+
+    client.on("messageCreate", onMsg);
+
+    try {
+      if (isSlash && settings.cloverId) {
+        await (channel as any).sendSlash(
+          settings.cloverId, slashName,
+          `@${toUsername}`, String(amount), String(server),
+        );
+      } else {
+        const cmd = `${settings.giveCommand} recipient:@${toUsername} amount: ${amount} server: ${server}`;
+        await (channel as any).send(cmd);
+      }
+    } catch (err) {
+      clearTimeout(timer);
+      client.off("messageCreate", onMsg);
+      resolveConfirm(false);
+      throw err;
+    }
+
+    const confirmed = await confirmPromise;
+    if (confirmed) {
+      botLog.info(`[${ctx.label}] ✅ Transfer confirm clicked`, ctx.accountId);
+    } else {
+      botLog.warn(
+        `[${ctx.label}] Transfer command sent but confirm button not received within 15s`,
+        ctx.accountId,
+      );
     }
   }
 
