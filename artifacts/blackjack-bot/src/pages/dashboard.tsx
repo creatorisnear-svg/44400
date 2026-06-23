@@ -143,29 +143,55 @@ function LogLevel({ level }: { level: string }) {
   );
 }
 
-function TransferPanel() {
+function FillOrderCountdown({ target }: { target: number }) {
+  const [secs, setSecs] = useState(Math.max(0, Math.round((target - Date.now()) / 1000)));
+  useEffect(() => {
+    const t = setInterval(() => {
+      const remaining = Math.max(0, Math.round((target - Date.now()) / 1000));
+      setSecs(remaining);
+    }, 1000);
+    return () => clearInterval(t);
+  }, [target]);
+  const m = Math.floor(secs / 60);
+  const s = secs % 60;
+  return <span>{m}m {String(s).padStart(2, "0")}s</span>;
+}
+
+function TransferPanel({ fillOrder }: { fillOrder: any }) {
+  const qc = useQueryClient();
   const [toUsername, setToUsername] = useState("");
   const [amount, setAmount] = useState("");
-  const [result, setResult] = useState<any>(null);
+  const [error, setError] = useState<string | null>(null);
 
-  const mut = useMutation({
-    mutationFn: (data: { toUsername: string; amount: number | null }) =>
-      apiFetch("/api/transfer", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
-      }),
-    onSuccess: (data) => setResult(data),
+  const fillMut = useMutation({
+    mutationFn: (data: { toUsername: string; totalAmount: number }) =>
+      apiFetch("/api/transfer/fill", { method: "POST", body: JSON.stringify(data) }),
+    onSuccess: () => { setError(null); qc.invalidateQueries({ queryKey: ["bot-status"] }); },
+    onError: (e) => setError((e as Error).message),
   });
 
-  const handleTransfer = (e: React.FormEvent) => {
+  const cancelMut = useMutation({
+    mutationFn: () => apiFetch("/api/transfer/fill/cancel", { method: "POST" }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["bot-status"] }),
+  });
+
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!toUsername.trim()) return;
-    setResult(null);
-    mut.mutate({
+    if (!toUsername.trim() || !amount) return;
+    setError(null);
+    fillMut.mutate({
       toUsername: toUsername.trim().replace(/^@/, ""),
-      amount: amount ? Number(amount) : null,
+      totalAmount: Number(amount),
     });
+  };
+
+  const activeFill = fillOrder && !fillOrder.done;
+
+  const stepIcon = (status: string) => {
+    if (status === "sent") return <CheckCircle2 className="w-3 h-3 text-green-400 shrink-0" />;
+    if (status === "error") return <XCircle className="w-3 h-3 text-red-400 shrink-0" />;
+    if (status === "sending") return <Loader2 className="w-3 h-3 text-blue-400 shrink-0 animate-spin" />;
+    return <span className="w-3 h-3 rounded-full border border-gray-600 shrink-0 inline-block" />;
   };
 
   return (
@@ -173,69 +199,107 @@ function TransferPanel() {
       <CardHeader className="pb-3">
         <CardTitle className="text-sm font-medium text-gray-300 flex items-center gap-2">
           <ArrowRightLeft className="w-4 h-4 text-blue-400" />
-          Transfer Clover Points
+          Fill Order Transfer
         </CardTitle>
       </CardHeader>
-      <CardContent>
-        <form onSubmit={handleTransfer} className="space-y-3">
-          <div>
-            <Label className="text-xs text-gray-400 mb-1 block">Recipient Username</Label>
-            <div className="flex gap-2">
-              <span className="text-gray-500 self-center text-sm">@</span>
-              <Input
-                className="bg-gray-800 border-gray-600 text-white flex-1"
-                placeholder="creator5677"
-                value={toUsername}
-                onChange={(e) => setToUsername(e.target.value)}
-              />
+      <CardContent className="space-y-4">
+        {!activeFill ? (
+          <form onSubmit={handleSubmit} className="space-y-3">
+            <div>
+              <Label className="text-xs text-gray-400 mb-1 block">Recipient Username</Label>
+              <div className="flex gap-2 items-center">
+                <span className="text-gray-500 text-sm">@</span>
+                <Input
+                  className="bg-gray-800 border-gray-600 text-white flex-1"
+                  placeholder="creator5677"
+                  value={toUsername}
+                  onChange={(e) => setToUsername(e.target.value)}
+                />
+              </div>
             </div>
-            <p className="text-xs text-gray-600 mt-1">No @ needed — just the username</p>
-          </div>
-          <div>
-            <Label className="text-xs text-gray-400 mb-1 block">Amount (leave blank = full balance)</Label>
-            <Input
-              type="number"
-              min={1}
-              className="bg-gray-800 border-gray-600 text-white"
-              placeholder="350000"
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-            />
-          </div>
-          <Button
-            type="submit"
-            className="w-full bg-blue-600 hover:bg-blue-500"
-            disabled={mut.isPending || !toUsername.trim()}
-          >
-            <Send className="w-4 h-4 mr-2" />
-            {mut.isPending ? "Sending..." : "Transfer from All Accounts"}
-          </Button>
-        </form>
+            <div>
+              <Label className="text-xs text-gray-400 mb-1 block">Total Amount to Send</Label>
+              <Input
+                type="number"
+                min={1}
+                className="bg-gray-800 border-gray-600 text-white"
+                placeholder="100000"
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+              />
+              <p className="text-xs text-gray-600 mt-1">
+                Accounts fill in order — each waits 10 min before the next sends
+              </p>
+            </div>
+            {error && (
+              <div className="p-2 bg-red-900/40 border border-red-700 rounded text-xs text-red-300">{error}</div>
+            )}
+            <Button
+              type="submit"
+              className="w-full bg-blue-600 hover:bg-blue-500"
+              disabled={fillMut.isPending || !toUsername.trim() || !amount}
+            >
+              <Send className="w-4 h-4 mr-2" />
+              {fillMut.isPending ? "Starting..." : "Start Fill Order"}
+            </Button>
+          </form>
+        ) : (
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="text-xs text-gray-400">
+                Sending to <span className="text-white font-medium">@{fillOrder.toUsername}</span>
+              </div>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-6 px-2 text-xs text-red-400 hover:text-red-300"
+                onClick={() => cancelMut.mutate()}
+                disabled={cancelMut.isPending}
+              >
+                Cancel
+              </Button>
+            </div>
 
-        {mut.error && (
-          <div className="mt-3 p-2 bg-red-900/40 border border-red-700 rounded text-xs text-red-300">
-            {(mut.error as Error).message}
+            <div className="bg-gray-800 rounded-lg p-3 space-y-1">
+              <div className="flex justify-between text-xs mb-2">
+                <span className="text-gray-400">Progress</span>
+                <span className="text-white font-mono">
+                  {fillOrder.totalSent.toLocaleString()} / {fillOrder.totalRequested.toLocaleString()}
+                </span>
+              </div>
+              <div className="w-full bg-gray-700 rounded-full h-1.5">
+                <div
+                  className="bg-blue-500 h-1.5 rounded-full transition-all"
+                  style={{ width: `${Math.min(100, (fillOrder.totalSent / fillOrder.totalRequested) * 100)}%` }}
+                />
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              {fillOrder.steps?.map((step: any, i: number) => (
+                <div key={i} className="flex items-center gap-2 text-xs p-2 bg-gray-800 rounded">
+                  {stepIcon(step.status)}
+                  <span className="text-gray-300 flex-1">{step.label}</span>
+                  <span className="text-gray-500 font-mono">{step.amount.toLocaleString()}</span>
+                  {step.status === "sent" && <span className="text-green-400">✓</span>}
+                  {step.status === "error" && <span className="text-red-400">{step.error}</span>}
+                </div>
+              ))}
+            </div>
+
+            {fillOrder.nextSendAt && (
+              <div className="text-xs text-center text-gray-500">
+                Next send in <span className="text-yellow-400 font-mono">
+                  <FillOrderCountdown target={fillOrder.nextSendAt} />
+                </span>
+              </div>
+            )}
           </div>
         )}
 
-        {result && (
-          <div className="mt-4 space-y-2">
-            <div className="text-xs text-gray-400 font-medium">
-              Total transferred: <span className="text-green-400 font-bold">{result.totalTransferred?.toLocaleString()}</span> points
-            </div>
-            {result.results?.map((r: any) => (
-              <div key={r.accountId} className="flex items-center gap-2 text-xs">
-                {r.success ? (
-                  <CheckCircle2 className="w-3 h-3 text-green-400 shrink-0" />
-                ) : (
-                  <XCircle className="w-3 h-3 text-red-400 shrink-0" />
-                )}
-                <span className="text-gray-300">{r.label}</span>
-                <span className={r.success ? "text-green-400" : "text-red-400"}>
-                  {r.success ? `+${r.amount.toLocaleString()}` : r.error}
-                </span>
-              </div>
-            ))}
+        {fillOrder?.done && (
+          <div className="p-2 bg-green-900/30 border border-green-700 rounded text-xs text-green-300 text-center">
+            ✅ Fill order complete — {fillOrder.totalSent.toLocaleString()} sent to @{fillOrder.toUsername}
           </div>
         )}
       </CardContent>

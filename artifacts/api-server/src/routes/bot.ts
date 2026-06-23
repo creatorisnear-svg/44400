@@ -109,6 +109,23 @@ router.post("/transfer", async (req, res) => {
   }
 });
 
+router.post("/transfer/fill", async (req, res) => {
+  const { toUsername, totalAmount } = req.body;
+  if (!toUsername) return res.status(400).json({ error: "toUsername is required" });
+  if (!totalAmount || totalAmount <= 0) return res.status(400).json({ error: "totalAmount must be > 0" });
+  try {
+    await nukeBot.startFillOrder(toUsername, Number(totalAmount));
+    return res.json({ ok: true });
+  } catch (err) {
+    return res.status(400).json({ error: (err as Error).message });
+  }
+});
+
+router.post("/transfer/fill/cancel", async (_req, res) => {
+  nukeBot.cancelFillOrder();
+  return res.json({ ok: true });
+});
+
 router.get("/transfers", async (req, res) => {
   const limit = Math.min(Number(req.query.limit) || 50, 200);
   const rows = await db

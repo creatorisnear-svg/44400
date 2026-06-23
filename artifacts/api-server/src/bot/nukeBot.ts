@@ -22,6 +22,25 @@ interface AccountRuntime {
   scrapThisSession: number;
 }
 
+interface FillStep {
+  label: string;
+  accountId: number;
+  amount: number;
+  status: "pending" | "sending" | "sent" | "skipped" | "error";
+  error?: string;
+  sentAt?: number;
+}
+
+interface ActiveFillOrder {
+  toUsername: string;
+  totalRequested: number;
+  totalSent: number;
+  steps: FillStep[];
+  nextSendAt: number | null;
+  done: boolean;
+  cancelRequested: boolean;
+}
+
 interface BotStatusData {
   running: boolean;
   accounts: {
@@ -38,6 +57,7 @@ interface BotStatusData {
   totalScrapToday: number;
   uptime: number;
   nextAutoTransferAt: number | null;
+  fillOrder: ActiveFillOrder | null;
 }
 
 const delay = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
@@ -78,6 +98,7 @@ class NukeBot {
   private processingNukes = new Set<string>();
   private autoTransferTimer: ReturnType<typeof setInterval> | null = null;
   private nextAutoTransferAt: number | null = null;
+  private activeFillOrder: ActiveFillOrder | null = null;
 
   getStatus(): BotStatusData {
     const accounts = [...this.runtimes.values()].map((r) => ({
@@ -97,7 +118,157 @@ class NukeBot {
       totalScrapToday: this.totalScrapToday,
       uptime: this.startTime ? Math.floor((Date.now() - this.startTime) / 1000) : 0,
       nextAutoTransferAt: this.nextAutoTransferAt,
+      fillOrder: this.activeFillOrder,
     };
+  }
+
+  cancelFillOrder(): void {
+    if (this.activeFillOrder && !this.activeFillOrder.done) {
+      this.activeFillOrder.cancelRequested = true;
+      botLog.info("Fill order cancelled by user.");
+    }
+  }
+
+  async startFillOrder(toUsername: string, totalAmount: number): Promise<void> {
+    if (this.activeFillOrder && !this.activeFillOrder.done) {
+      throw new Error("A fill order is already in progress. Cancel it first.");
+    }
+
+    const [settings] = await db.select().from(botSettingsTable).limit(1);
+    if (!settings) throw new Error("Bot settings not configured.");
+
+    const runtimes = [...this.runtimes.values()].filter(
+      (r) => r.status === "connected" && r.client,
+    );
+    if (runtimes.length === 0) throw new Error("No connected accounts available.");
+
+    const dbAccounts = await db.select().from(accountsTable);
+    const balanceMap = new Map(dbAccounts.map((a) => [a.id, a.balance]));
+
+    let remaining = totalAmount;
+    const steps: FillStep[] = [];
+
+    for (const runtime of runtimes) {
+      if (remaining <= 0) break;
+      const balance = balanceMap.get(runtime.accountId) ?? 0;
+      if (balance <= 0) continue;
+      const sendAmount = Math.min(balance, remaining);
+      steps.push({ label: runtime.label, accountId: runtime.accountId, amount: sendAmount, status: "pending" });
+      remaining -= sendAmount;
+    }
+
+    if (steps.length === 0) {
+      throw new Error("No accounts have enough balance to fulfill this order.");
+    }
+
+    if (remaining > 0) {
+      botLog.warn(`Fill order: accounts can only cover ${totalAmount - remaining} of ${totalAmount} requested.`);
+    }
+
+    this.activeFillOrder = {
+      toUsername,
+      totalRequested: totalAmount,
+      totalSent: 0,
+      steps,
+      nextSendAt: null,
+      done: false,
+      cancelRequested: false,
+    };
+
+    botLog.info(`💸 Fill order started: ${totalAmount.toLocaleString()} → @${toUsername} across ${steps.length} account(s)`);
+
+    this.runFillOrder(settings).catch((err) => {
+      botLog.error(`Fill order error: ${(err as Error).message}`);
+      if (this.activeFillOrder) this.activeFillOrder.done = true;
+    });
+  }
+
+  private async runFillOrder(settings: typeof botSettingsTable.$inferSelect): Promise<void> {
+    const fo = this.activeFillOrder!;
+    const intervalMs = ((settings as any).autoTransferIntervalMin ?? 10) * 60 * 1000;
+    const transferChannelId = (settings as any).transferChannelId || settings.channelId;
+    const server = (settings as any).transferServer ?? 1;
+
+    for (let i = 0; i < fo.steps.length; i++) {
+      if (fo.cancelRequested) {
+        botLog.info("Fill order: cancelled.");
+        fo.done = true;
+        return;
+      }
+
+      if (i > 0) {
+        fo.nextSendAt = Date.now() + intervalMs;
+        botLog.info(`Fill order: waiting ${(settings as any).autoTransferIntervalMin ?? 10} min before next account...`);
+
+        const intervalEnd = fo.nextSendAt;
+        while (Date.now() < intervalEnd) {
+          if (fo.cancelRequested) {
+            fo.done = true;
+            botLog.info("Fill order: cancelled during wait.");
+            return;
+          }
+          await delay(2000);
+        }
+        fo.nextSendAt = null;
+      }
+
+      const step = fo.steps[i];
+      const runtime = this.runtimes.get(step.accountId);
+
+      if (!runtime || runtime.status !== "connected" || !runtime.client) {
+        step.status = "error";
+        step.error = "Account disconnected";
+        botLog.error(`[${step.label}] Fill order: account not connected, skipping.`);
+        continue;
+      }
+
+      step.status = "sending";
+      botLog.info(`[${step.label}] Fill order: sending ${step.amount.toLocaleString()} → @${fo.toUsername}`);
+
+      try {
+        const channel = runtime.client.channels.cache.get(transferChannelId);
+        if (!channel || !(channel as any).isText()) throw new Error(`Channel ${transferChannelId} not accessible`);
+
+        const cmd = `${settings.giveCommand} recipient:@${fo.toUsername} amount: ${step.amount} server: ${server}`;
+        await (channel as any).send(cmd);
+
+        step.status = "sent";
+        step.sentAt = Date.now();
+        fo.totalSent += step.amount;
+
+        botLog.info(`[${step.label}] ✓ Sent ${step.amount.toLocaleString()} → @${fo.toUsername}`);
+
+        const dbAccount = await db.select().from(accountsTable).where(eq(accountsTable.id, step.accountId)).then((r) => r[0]);
+        await db.update(accountsTable).set({
+          balance: Math.max(0, (dbAccount?.balance ?? 0) - step.amount),
+          totalTransferred: (dbAccount?.totalTransferred ?? 0) + step.amount,
+          updatedAt: new Date(),
+        }).where(eq(accountsTable.id, step.accountId)).catch(() => {});
+
+        await db.insert(transfersTable).values({
+          fromAccountId: step.accountId,
+          toUsername: fo.toUsername,
+          amount: step.amount,
+          success: true,
+          error: null,
+        }).catch(() => {});
+      } catch (err) {
+        const errMsg = (err as Error).message;
+        step.status = "error";
+        step.error = errMsg;
+        botLog.error(`[${step.label}] Fill order failed: ${errMsg}`);
+        await db.insert(transfersTable).values({
+          fromAccountId: step.accountId,
+          toUsername: fo.toUsername,
+          amount: step.amount,
+          success: false,
+          error: errMsg,
+        }).catch(() => {});
+      }
+    }
+
+    fo.done = true;
+    botLog.info(`✅ Fill order complete. Sent ${fo.totalSent.toLocaleString()} of ${fo.totalRequested.toLocaleString()} requested → @${fo.toUsername}`);
   }
 
   private async syncEnvAccounts(): Promise<void> {
