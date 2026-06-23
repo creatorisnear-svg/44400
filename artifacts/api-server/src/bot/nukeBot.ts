@@ -1259,7 +1259,7 @@ class NukeBot {
           throw new Error(`Channel ${channelId} not accessible for ${runtime.label}`);
         }
 
-        botLog.info(`[${runtime.label}] 💰 Requesting balance...`, runtime.accountId);
+        botLog.info(`[${runtime.label}] 💰 Requesting balance... (channelId=${channelId} cloverId=${cloverId})`, runtime.accountId);
 
         // Listen for KA0SBOT's reply BEFORE sending the command
         const balancePromise = new Promise<number | null>((resolve) => {
@@ -1272,12 +1272,13 @@ class NukeBot {
             resolve(val);
           };
 
-          const timer = setTimeout(() => done(null), 8000);
+          const timer = setTimeout(() => done(null), 12000);
 
-          const tryParse = (text: string): boolean => {
+          const tryParse = (text: string, source: string): boolean => {
             // Skip the command echo itself
             if (text.trim().startsWith(prefix + "balance") || text.trim().startsWith("/balance")) return false;
             const val = parseBalanceFromText(text);
+            botLog.info(`[${runtime.label}] 💰 [${source}] got text (len=${text.length}): "${text.slice(0, 120)}" → parsed=${val}`, runtime.accountId);
             if (val !== null && val >= 0) {
               clearTimeout(timer);
               done(val);
@@ -1287,19 +1288,25 @@ class NukeBot {
           };
 
           function msgHandler(m: any) {
-            if (m.channelId !== channelId) return;
-            if (cloverId && m.author?.id !== cloverId) return;
-            tryParse(extractBalanceText(m));
+            const mCh = m.channelId ?? m.channel_id;
+            const mAuth = m.author?.id;
+            botLog.info(`[${runtime.label}] 💰 messageCreate ch=${mCh} author=${mAuth}`, runtime.accountId);
+            if (mCh !== channelId) return;
+            if (cloverId && mAuth !== cloverId) return;
+            tryParse(extractBalanceText(m), "messageCreate");
           }
 
           function rawHandler(packet: any) {
-            if (packet.t !== "MESSAGE_CREATE" && packet.t !== "INTERACTION_SUCCESS") return;
+            const t = packet.t;
+            if (!["MESSAGE_CREATE", "INTERACTION_SUCCESS", "INTERACTION_CREATE", "MESSAGE_UPDATE"].includes(t)) return;
             const d = packet.d ?? packet;
-            if ((d.channel_id ?? d.channelId) !== channelId) return;
-            const authorId = d.author?.id ?? d.member?.user?.id;
+            const pCh = d.channel_id ?? d.channelId;
+            const authorId = d.author?.id ?? d.member?.user?.id ?? d.user?.id;
+            botLog.info(`[${runtime.label}] 💰 raw ${t} ch=${pCh} author=${authorId}`, runtime.accountId);
+            if (pCh !== channelId) return;
             if (cloverId && authorId && authorId !== cloverId) return;
             const msgData = d.message ?? d;
-            tryParse(extractBalanceText(msgData));
+            tryParse(extractBalanceText(msgData), `raw:${t}`);
           }
 
           client.on("messageCreate", msgHandler);
@@ -1310,8 +1317,10 @@ class NukeBot {
         let slashOk = false;
         if (cloverId) {
           try {
+            botLog.info(`[${runtime.label}] 💰 Trying sendSlash balance...`, runtime.accountId);
             const resp = await (channel as any).sendSlash(cloverId, "balance");
             slashOk = true;
+            botLog.info(`[${runtime.label}] 💰 sendSlash returned, keys=${resp ? Object.keys(resp).join(",") : "null"}`, runtime.accountId);
             // sendSlash may return the reply directly (ephemeral)
             const directText = extractBalanceText(resp?.message ?? resp);
             const directVal = parseBalanceFromText(directText);
@@ -1322,14 +1331,17 @@ class NukeBot {
               results.push({ accountId: runtime.accountId, label: runtime.label, balance: directVal });
               continue;
             }
-          } catch {
+            botLog.warn(`[${runtime.label}] 💰 sendSlash returned but couldn't parse value, waiting for messageCreate...`, runtime.accountId);
+          } catch (slashErr) {
             slashOk = false;
+            botLog.warn(`[${runtime.label}] 💰 sendSlash failed: ${(slashErr as Error).message}, falling back to text`, runtime.accountId);
           }
         }
 
         if (!slashOk) {
-          await (channel as any).send(`${prefix}balance`);
-          botLog.info(`[${runtime.label}] 💰 Sent ${prefix}balance text command`, runtime.accountId);
+          const cmd = `${prefix}balance`;
+          await (channel as any).send(cmd);
+          botLog.info(`[${runtime.label}] 💰 Sent text command: ${cmd}`, runtime.accountId);
         }
 
         const parsedBalance = await balancePromise;
