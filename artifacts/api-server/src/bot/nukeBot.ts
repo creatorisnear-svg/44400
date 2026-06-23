@@ -653,14 +653,52 @@ class NukeBot {
           let claimed = false;
 
           if (msg && msg.components && msg.components.length > 0) {
+            const targetServer = String((settings as any).transferServer ?? 1);
+
             for (const row of msg.components) {
               for (const component of (row as MessageActionRow).components) {
-                if (component.type === "BUTTON") {
+                const compType = (component as any).type;
+
+                // SELECT_MENU = KA0SBOT "choose server" dropdown (primary method)
+                if (compType === "SELECT_MENU" || compType === 3) {
+                  try {
+                    const selectMenu = component as any;
+                    const options: any[] = selectMenu.options ?? [];
+
+                    botLog.info(
+                      `[${runtime.label}] select menu found with options: ${options.map((o: any) => `${o.label}(${o.value})`).join(", ")}`,
+                      runtime.accountId,
+                    );
+
+                    const targetOption =
+                      options.find((opt: any) =>
+                        String(opt.value) === targetServer ||
+                        opt.value?.toLowerCase().includes(targetServer) ||
+                        opt.label?.toLowerCase().includes(`server ${targetServer}`)
+                      ) ?? options[0];
+
+                    if (targetOption) {
+                      await selectMenu.select([targetOption.value]);
+                      claimed = true;
+                      botLog.info(
+                        `[${runtime.label}] ✓ selected "${targetOption.label}" (value: ${targetOption.value})`,
+                        runtime.accountId,
+                      );
+                    } else {
+                      botLog.warn(`[${runtime.label}] no matching option for server ${targetServer}`, runtime.accountId);
+                    }
+                  } catch (selErr) {
+                    botLog.warn(`[${runtime.label}] select menu error: ${(selErr as Error).message}`, runtime.accountId);
+                  }
+                  break;
+                }
+
+                // BUTTON fallback (other bots)
+                if (!claimed && (compType === "BUTTON" || compType === 2)) {
                   try {
                     await (component as MessageButton).click();
                     claimed = true;
-                    botLog.info(`[${runtime.label}] clicked claim button ✓`, runtime.accountId);
-                    break;
+                    botLog.info(`[${runtime.label}] ✓ clicked claim button`, runtime.accountId);
                   } catch (btnErr) {
                     botLog.warn(`[${runtime.label}] button click failed: ${(btnErr as Error).message}`, runtime.accountId);
                   }
@@ -668,13 +706,14 @@ class NukeBot {
               }
               if (claimed) break;
             }
+          } else if (msg) {
+            botLog.warn(`[${runtime.label}] nuke message has no components — cannot claim`, runtime.accountId);
+          } else {
+            botLog.warn(`[${runtime.label}] could not fetch nuke message ${triggerMsg.id}`, runtime.accountId);
           }
 
           if (!claimed) {
-            const prefix = settings.cloverPrefix ?? "%";
-            await (channel as any).send(`${prefix}claim`);
-            botLog.info(`[${runtime.label}] sent claim command`, runtime.accountId);
-            claimed = true;
+            botLog.warn(`[${runtime.label}] all claim methods failed — no action taken`, runtime.accountId);
           }
 
           if (claimed) {
