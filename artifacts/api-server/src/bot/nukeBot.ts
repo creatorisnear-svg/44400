@@ -37,6 +37,7 @@ interface BotStatusData {
   totalClaimsToday: number;
   totalScrapToday: number;
   uptime: number;
+  nextAutoTransferAt: number | null;
 }
 
 const delay = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
@@ -75,6 +76,8 @@ class NukeBot {
   private totalClaimsToday = 0;
   private totalScrapToday = 0;
   private processingNukes = new Set<string>();
+  private autoTransferTimer: ReturnType<typeof setInterval> | null = null;
+  private nextAutoTransferAt: number | null = null;
 
   getStatus(): BotStatusData {
     const accounts = [...this.runtimes.values()].map((r) => ({
@@ -93,6 +96,7 @@ class NukeBot {
       totalClaimsToday: this.totalClaimsToday,
       totalScrapToday: this.totalScrapToday,
       uptime: this.startTime ? Math.floor((Date.now() - this.startTime) / 1000) : 0,
+      nextAutoTransferAt: this.nextAutoTransferAt,
     };
   }
 
@@ -125,10 +129,17 @@ class NukeBot {
     await Promise.all(
       accounts.map((acc) => this.connectAccount(acc, settings)),
     );
+
+    this.startAutoTransferScheduler(settings);
   }
 
   async stop(): Promise<void> {
     botLog.info("Stopping all accounts...");
+    if (this.autoTransferTimer) {
+      clearInterval(this.autoTransferTimer);
+      this.autoTransferTimer = null;
+    }
+    this.nextAutoTransferAt = null;
     for (const runtime of this.runtimes.values()) {
       runtime.status = "disconnected";
       if (runtime.client) {
@@ -141,6 +152,131 @@ class NukeBot {
     this.runtimes.clear();
     this.processingNukes.clear();
     botLog.info("All accounts stopped.");
+  }
+
+  private startAutoTransferScheduler(settings: typeof botSettingsTable.$inferSelect): void {
+    if (this.autoTransferTimer) {
+      clearInterval(this.autoTransferTimer);
+      this.autoTransferTimer = null;
+    }
+
+    if (!(settings as any).autoTransferEnabled || !(settings as any).autoTransferRecipient) {
+      botLog.info("Auto-transfer disabled — skipping scheduler.");
+      this.nextAutoTransferAt = null;
+      return;
+    }
+
+    const intervalMs = ((settings as any).autoTransferIntervalMin ?? 10) * 60 * 1000;
+    this.nextAutoTransferAt = Date.now() + intervalMs;
+
+    botLog.info(
+      `⏱ Auto-transfer scheduled every ${(settings as any).autoTransferIntervalMin ?? 10} min → @${(settings as any).autoTransferRecipient}`,
+    );
+
+    this.autoTransferTimer = setInterval(async () => {
+      const [freshSettings] = await db.select().from(botSettingsTable).limit(1);
+      if (!freshSettings || !(freshSettings as any).autoTransferEnabled || !(freshSettings as any).autoTransferRecipient) {
+        botLog.info("Auto-transfer disabled in settings — skipping this cycle.");
+        this.nextAutoTransferAt = Date.now() + intervalMs;
+        return;
+      }
+
+      const recipient = (freshSettings as any).autoTransferRecipient as string;
+      botLog.info(`⏱ Auto-transfer cycle starting → @${recipient}`);
+      await this.runStaggedAutoTransfer(recipient, freshSettings);
+
+      this.nextAutoTransferAt = Date.now() + intervalMs;
+    }, intervalMs);
+  }
+
+  private async runStaggedAutoTransfer(
+    recipient: string,
+    settings: typeof botSettingsTable.$inferSelect,
+  ): Promise<void> {
+    const runtimes = [...this.runtimes.values()].filter(
+      (r) => r.status === "connected" && r.client,
+    );
+
+    if (runtimes.length === 0) {
+      botLog.warn("Auto-transfer: no connected accounts, skipping.");
+      return;
+    }
+
+    let totalSent = 0;
+    let successCount = 0;
+
+    for (const runtime of runtimes) {
+      const dbAccount = await db
+        .select()
+        .from(accountsTable)
+        .where(eq(accountsTable.id, runtime.accountId))
+        .then((rows) => rows[0]);
+
+      const balance = dbAccount?.balance ?? 0;
+      if (balance <= 0) {
+        botLog.info(`[${runtime.label}] Auto-transfer: balance is 0, skipping.`, runtime.accountId);
+        continue;
+      }
+
+      const staggerMs = Math.floor(Math.random() * 90_000) + 30_000;
+      botLog.info(
+        `[${runtime.label}] Auto-transfer: waiting ${Math.round(staggerMs / 1000)}s before sending ${balance.toLocaleString()} scrap...`,
+        runtime.accountId,
+      );
+      await delay(staggerMs);
+
+      try {
+        const channel = runtime.client!.channels.cache.get(settings.channelId);
+        if (!channel || !channel.isText()) throw new Error("Channel not accessible");
+
+        const server = (settings as any).transferServer ?? 1;
+        const cmd = `${settings.giveCommand} recipient:@${recipient} amount: ${balance} server: ${server}`;
+        await (channel as any).send(cmd);
+
+        botLog.info(`[${runtime.label}] Auto-transfer sent: ${balance.toLocaleString()} → @${recipient}`, runtime.accountId);
+
+        await db
+          .update(accountsTable)
+          .set({
+            balance: 0,
+            totalTransferred: (dbAccount?.totalTransferred ?? 0) + balance,
+            updatedAt: new Date(),
+          })
+          .where(eq(accountsTable.id, runtime.accountId))
+          .catch(() => {});
+
+        await db
+          .insert(transfersTable)
+          .values({
+            fromAccountId: runtime.accountId,
+            toUsername: recipient,
+            amount: balance,
+            success: true,
+            error: null,
+          })
+          .catch(() => {});
+
+        totalSent += balance;
+        successCount++;
+      } catch (err) {
+        const errMsg = (err as Error).message;
+        botLog.error(`[${runtime.label}] Auto-transfer failed: ${errMsg}`, runtime.accountId);
+        await db
+          .insert(transfersTable)
+          .values({
+            fromAccountId: runtime.accountId,
+            toUsername: recipient,
+            amount: balance,
+            success: false,
+            error: errMsg,
+          })
+          .catch(() => {});
+      }
+    }
+
+    botLog.info(
+      `✅ Auto-transfer cycle done. ${successCount}/${runtimes.length} accounts sent ${totalSent.toLocaleString()} scrap to @${recipient}`,
+    );
   }
 
   private async connectAccount(

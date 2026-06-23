@@ -13,6 +13,9 @@ export const botSettingsTable = pgTable("bot_settings", {
   claimDelayMin: integer("claim_delay_min").notNull().default(300),
   claimDelayMax: integer("claim_delay_max").notNull().default(1200),
   transferServer: integer("transfer_server").notNull().default(1),
+  autoTransferEnabled: boolean("auto_transfer_enabled").notNull().default(false),
+  autoTransferRecipient: text("auto_transfer_recipient").notNull().default(""),
+  autoTransferIntervalMin: integer("auto_transfer_interval_min").notNull().default(10),
   enabled: boolean("enabled").notNull().default(false),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });

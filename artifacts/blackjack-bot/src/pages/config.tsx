@@ -29,6 +29,9 @@ interface BotSettings {
   claimDelayMin: number;
   claimDelayMax: number;
   transferServer: number;
+  autoTransferEnabled: boolean;
+  autoTransferRecipient: string;
+  autoTransferIntervalMin: number;
   enabled: boolean;
 }
 
@@ -436,6 +439,51 @@ export default function ConfigPanel() {
                 </div>
               </div>
               <p className="text-xs text-gray-600">Random delay before each account claims a nuke (human-like behavior)</p>
+
+              <div className="border-t border-gray-700 pt-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs text-gray-300 font-medium">Auto-Transfer</p>
+                    <p className="text-xs text-gray-500">Drain all account balances on a timer</p>
+                  </div>
+                  <Switch
+                    checked={form.autoTransferEnabled ?? false}
+                    onCheckedChange={(v) => set("autoTransferEnabled", v)}
+                  />
+                </div>
+
+                {form.autoTransferEnabled && (
+                  <div className="space-y-3 pl-1">
+                    <div>
+                      <Label className="text-gray-300 text-xs mb-1 block">Recipient Username</Label>
+                      <div className="flex items-center gap-2">
+                        <span className="text-gray-500 text-sm shrink-0">@</span>
+                        <Input
+                          className="bg-gray-800 border-gray-600 text-white"
+                          placeholder="creator5677"
+                          value={form.autoTransferRecipient ?? ""}
+                          onChange={(e) => set("autoTransferRecipient", e.target.value.replace(/^@/, ""))}
+                        />
+                      </div>
+                      <p className="text-xs text-gray-600 mt-1">Points sent to this user automatically</p>
+                    </div>
+                    <div>
+                      <Label className="text-gray-300 text-xs mb-1 block">Interval (minutes)</Label>
+                      <Input
+                        type="number"
+                        min={1}
+                        max={1440}
+                        className="bg-gray-800 border-gray-600 text-white w-28"
+                        value={form.autoTransferIntervalMin ?? 10}
+                        onChange={(e) => set("autoTransferIntervalMin", Number(e.target.value))}
+                      />
+                      <p className="text-xs text-gray-600 mt-1">
+                        Each account waits a random 30–120s before sending to avoid spam detection
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
 
               <div className="border-t border-gray-700 pt-4">
                 <p className="text-xs text-yellow-300/80 bg-yellow-900/20 border border-yellow-700/40 rounded p-3 flex gap-2">

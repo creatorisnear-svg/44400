@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -61,6 +61,18 @@ function useAccounts() {
   });
 }
 
+function Countdown({ target }: { target: number }) {
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, []);
+  const remaining = Math.max(0, Math.floor((target - now) / 1000));
+  const m = Math.floor(remaining / 60);
+  const s = remaining % 60;
+  return <span>{m}m {s.toString().padStart(2, "0")}s</span>;
+}
+
 function StatCard({
   title,
   value,
@@ -69,7 +81,7 @@ function StatCard({
   color = "yellow",
 }: {
   title: string;
-  value: string | number;
+  value: string | number | React.ReactNode;
   sub?: string;
   icon: any;
   color?: "green" | "yellow" | "red" | "blue";
@@ -363,11 +375,19 @@ export default function Dashboard() {
             color={connectedCount > 0 ? "green" : "red"}
           />
           <StatCard
-            title="Uptime"
-            value={uptimeStr}
-            sub={running ? "running" : "not running"}
-            icon={Clock}
-            color="blue"
+            title={status?.nextAutoTransferAt ? "Next Auto-Transfer" : "Uptime"}
+            value={
+              status?.nextAutoTransferAt
+                ? <Countdown target={status.nextAutoTransferAt} />
+                : uptimeStr
+            }
+            sub={
+              status?.nextAutoTransferAt
+                ? "then staggered per account"
+                : running ? "running" : "not running"
+            }
+            icon={status?.nextAutoTransferAt ? ArrowRightLeft : Clock}
+            color={status?.nextAutoTransferAt ? "blue" : "blue"}
           />
         </div>
 
