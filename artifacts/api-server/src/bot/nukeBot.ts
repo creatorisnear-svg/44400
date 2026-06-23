@@ -772,34 +772,48 @@ class NukeBot {
         if (!selectComp && !buttonComp) {
           botLog.warn(`[${runtime.label}] no interactable component found`, runtime.accountId);
         } else {
-          // CRITICAL: start listening for KA0SBOT's reply BEFORE sending the interaction,
-          // because the ephemeral reply fires messageCreate during selectMenu()'s internal wait.
+          // Helper: extract text from any response-like object
+          const extractText = (r: any): string => {
+            if (!r) return "";
+            return [
+              r.content ?? "",
+              ...(r.embeds ?? []).map((e: any) => `${e.title ?? ""} ${e.description ?? ""} ${(e.fields ?? []).map((f: any) => `${f.name} ${f.value}`).join(" ")}`),
+            ].join(" ");
+          };
+
+          // Shared resolver — called by either the messageCreate listener OR the direct return value
+          let _resolveReply!: (v: { amount: number; alreadyClaimed: boolean }) => void;
+          let _replyResolved = false;
+          const doResolve = (v: { amount: number; alreadyClaimed: boolean }) => {
+            if (_replyResolved) return;
+            _replyResolved = true;
+            _resolveReply(v);
+          };
+
+          // CRITICAL: start listening for KA0SBOT's reply BEFORE sending the interaction
           const replyPromise = new Promise<{ amount: number; alreadyClaimed: boolean }>((resolve) => {
+            _resolveReply = resolve;
             const timer = setTimeout(() => {
               client.off("messageCreate", replyHandler);
-              resolve({ amount: 0, alreadyClaimed: false });
+              doResolve({ amount: 0, alreadyClaimed: false });
             }, 12000);
 
             function replyHandler(m: any) {
               if (settings.cloverId && m.author.id !== settings.cloverId) return;
               const mentioned = !m.mentions?.users?.size || m.mentions.users.has(client.user?.id ?? "");
               if (!mentioned) return;
-              const fullText = [
-                m.content ?? "",
-                ...(m.embeds ?? []).map((e: any) => `${e.title ?? ""} ${e.description ?? ""}`),
-              ].join(" ");
-
+              const fullText = extractText(m);
               if (/already\s+claimed/i.test(fullText)) {
                 clearTimeout(timer);
                 client.off("messageCreate", replyHandler);
-                resolve({ amount: 0, alreadyClaimed: true });
+                doResolve({ amount: 0, alreadyClaimed: true });
                 return;
               }
               const parsed = parseScrapFromText(fullText);
               if (parsed > 0) {
                 clearTimeout(timer);
                 client.off("messageCreate", replyHandler);
-                resolve({ amount: parsed, alreadyClaimed: false });
+                doResolve({ amount: parsed, alreadyClaimed: false });
               }
             }
 
@@ -809,9 +823,7 @@ class NukeBot {
           // Now send the interaction
           const humanize = (settings as any).humanize ?? true;
           if (humanize) {
-            // Pre-click jitter — a real user takes a moment to read and react
             await randDelay(200, 900);
-            // Show typing indicator so it looks like the account is actively doing something
             try { await (channel as any).sendTyping(); } catch {}
             await randDelay(600, 1800);
           }
@@ -830,11 +842,21 @@ class NukeBot {
 
             if (targetOption) {
               try {
-                await msg.selectMenu(selectComp.customId, [targetOption.value]);
+                const resp = await msg.selectMenu(selectComp.customId, [targetOption.value]);
                 botLog.info(`[${runtime.label}] ✓ selected "${targetOption.label}"`, runtime.accountId);
+                // Try to parse the direct return value (works when KA0SBOT replies ephemerally)
+                const respText = extractText(resp);
+                if (respText.trim()) {
+                  botLog.info(`[${runtime.label}] selectMenu raw resp: "${respText.slice(0, 200)}"`, runtime.accountId);
+                  if (/already\s+claimed/i.test(respText)) {
+                    doResolve({ amount: 0, alreadyClaimed: true });
+                  } else {
+                    const parsed = parseScrapFromText(respText);
+                    if (parsed > 0) doResolve({ amount: parsed, alreadyClaimed: false });
+                  }
+                }
               } catch (selErr) {
-                // The HTTP interaction was still dispatched — the error is just the response promise timing out
-                botLog.warn(`[${runtime.label}] selectMenu response timed out (interaction was sent): ${(selErr as Error).message}`, runtime.accountId);
+                botLog.warn(`[${runtime.label}] selectMenu error (interaction was sent): ${(selErr as Error).message}`, runtime.accountId);
               }
               interactionSent = true;
             } else {
@@ -842,10 +864,20 @@ class NukeBot {
             }
           } else if (buttonComp) {
             try {
-              await msg.clickButton(buttonComp.customId);
+              const resp = await msg.clickButton(buttonComp.customId);
               botLog.info(`[${runtime.label}] ✓ clicked button "${buttonComp.label ?? buttonComp.customId}"`, runtime.accountId);
+              const respText = extractText(resp);
+              if (respText.trim()) {
+                botLog.info(`[${runtime.label}] clickButton raw resp: "${respText.slice(0, 200)}"`, runtime.accountId);
+                if (/already\s+claimed/i.test(respText)) {
+                  doResolve({ amount: 0, alreadyClaimed: true });
+                } else {
+                  const parsed = parseScrapFromText(respText);
+                  if (parsed > 0) doResolve({ amount: parsed, alreadyClaimed: false });
+                }
+              }
             } catch (btnErr) {
-              botLog.warn(`[${runtime.label}] clickButton response timed out (interaction was sent): ${(btnErr as Error).message}`, runtime.accountId);
+              botLog.warn(`[${runtime.label}] clickButton error (interaction was sent): ${(btnErr as Error).message}`, runtime.accountId);
             }
             interactionSent = true;
           }
@@ -1113,12 +1145,15 @@ class NukeBot {
           const resp = await (channel as any).sendSlash(cloverId, "balance");
           parsedBalance = extractBalanceFromMsg(resp);
           if (parsedBalance === null) {
-            // Log the raw response so we can tune the parser
-            const rawText = [
-              resp?.content ?? "",
-              ...(resp?.embeds ?? []).map((e: any) => `${e.title ?? ""} ${e.description ?? ""}`),
-            ].join(" ").trim();
-            botLog.warn(`[${runtime.label}] /balance replied but couldn't parse amount. Raw: "${rawText.slice(0, 200)}"`, runtime.accountId);
+            // Log full structure so we can see where the data lives
+            const keys = resp ? Object.keys(resp).join(", ") : "null";
+            const rawContent = resp?.content ?? resp?.message?.content ?? "";
+            const rawEmbeds = (resp?.embeds ?? resp?.message?.embeds ?? []).map((e: any) =>
+              `${e.title ?? ""} ${e.description ?? ""} ${(e.fields ?? []).map((f: any) => `${f.name}: ${f.value}`).join(" ")}`
+            ).join(" ");
+            botLog.warn(`[${runtime.label}] /balance parse failed. Keys: [${keys}] Content: "${rawContent.slice(0, 100)}" Embeds: "${rawEmbeds.slice(0, 200)}"`, runtime.accountId);
+            // Try nested message field (some selfbot versions wrap response)
+            if (resp?.message) parsedBalance = extractBalanceFromMsg(resp.message);
           }
         } catch (slashErr) {
           // sendSlash failed (e.g. command not found in this channel) — try text fallback
