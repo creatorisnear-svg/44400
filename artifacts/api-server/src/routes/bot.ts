@@ -73,6 +73,7 @@ router.post("/accounts", async (req, res) => {
 
 router.delete("/accounts/:id", async (req, res) => {
   const id = Number(req.params.id);
+  nukeBot.hotDisconnectAccount(id);
   await db.delete(accountsTable).where(eq(accountsTable.id, id));
   return res.json({ ok: true });
 });

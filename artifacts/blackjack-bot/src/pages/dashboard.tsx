@@ -3,7 +3,6 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -647,8 +646,11 @@ function RefreshBalancesButton({ onRefreshing }: { onRefreshing: () => void }) {
   );
 }
 
+type TabKey = "logs" | "accounts" | "transfer" | "history" | "config";
+
 export default function Dashboard() {
   const qc = useQueryClient();
+  const [tab, setTab] = useState<TabKey>("logs");
   const [fastPoll, setFastPoll] = useState(false);
   const { data: status } = useStatus();
   const { data: logsData } = useLogs();
@@ -665,12 +667,10 @@ export default function Dashboard() {
     mutationFn: () => apiFetch("/api/bot/start", { method: "POST" }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["bot-status"] }),
   });
-
   const stopMut = useMutation({
     mutationFn: () => apiFetch("/api/bot/stop", { method: "POST" }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["bot-status"] }),
   });
-
   const cancelFillMut = useMutation({
     mutationFn: () => apiFetch("/api/transfer/fill/cancel", { method: "POST" }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["bot-status"] }),
@@ -691,210 +691,188 @@ export default function Dashboard() {
     ? `${Math.floor(uptime / 3600)}h ${Math.floor((uptime % 3600) / 60)}m ${uptime % 60}s`
     : "—";
   const totalBalance = accounts.reduce((s: number, a: any) => s + (a.balance ?? 0), 0);
+  const hasFill = status?.fillOrder && !status.fillOrder.done;
+
+  const navItems: { key: TabKey; label: string; icon: any }[] = [
+    { key: "logs",     label: "Logs",     icon: Activity },
+    { key: "accounts", label: "Accounts", icon: Users },
+    { key: "transfer", label: "Transfer", icon: ArrowRightLeft },
+    { key: "history",  label: "Events",   icon: History },
+    { key: "config",   label: "Config",   icon: Shield },
+  ];
 
   return (
-    <div className="min-h-screen bg-gray-950 text-white">
-      {/* Header */}
-      <div className="border-b border-gray-800/60 bg-gray-900/40 backdrop-blur-sm sticky top-0 z-10">
-        <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="text-xl">☢️</div>
-            <div>
-              <div className="text-base font-bold text-white leading-none">Nuke Bot</div>
-              <div className="text-[10px] text-gray-500 leading-none mt-0.5">Clover Points Auto-Claimer</div>
-            </div>
+    <div className="min-h-screen bg-gray-950 text-white flex flex-col">
+      {/* ── Sticky header ── */}
+      <header className="border-b border-gray-800/60 bg-gray-900/80 backdrop-blur-sm sticky top-0 z-20">
+        <div className="max-w-3xl mx-auto px-4 py-2.5 flex items-center gap-3">
+          <span className="text-lg">☢️</span>
+          <div className="flex-1 min-w-0">
+            <div className="text-sm font-bold text-white leading-none">Nuke Bot</div>
+            <div className="text-[10px] text-gray-500 leading-none mt-0.5 hidden sm:block">Clover Points Auto-Claimer</div>
           </div>
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2 text-sm">
-              <span className={`w-2 h-2 rounded-full shrink-0 ${
-                running && connectedCount > 0 ? "bg-emerald-400 animate-pulse" :
-                running ? "bg-yellow-400 animate-pulse" : "bg-gray-600"
-              }`} />
-              <span className="text-gray-400 text-xs">
-                {running ? (connectedCount > 0 ? `${connectedCount}/${totalAccounts} online` : "Connecting…") : "Offline"}
-              </span>
-            </div>
-            {running ? (
-              <Button variant="destructive" size="sm" className="h-8 text-xs" onClick={() => stopMut.mutate()} disabled={stopMut.isPending}>
-                <Square className="w-3 h-3 mr-1" /> Stop
-              </Button>
-            ) : (
-              <Button size="sm" className="h-8 text-xs bg-emerald-600 hover:bg-emerald-500 text-white" onClick={() => startMut.mutate()} disabled={startMut.isPending}>
-                {startMut.isPending ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Play className="w-3 h-3 mr-1" />}
-                Start Bot
-              </Button>
-            )}
+          {/* Status pill */}
+          <div className="flex items-center gap-1.5 bg-gray-800/60 rounded-full px-3 py-1">
+            <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+              running && connectedCount > 0 ? "bg-emerald-400 animate-pulse" :
+              running ? "bg-yellow-400 animate-pulse" : "bg-gray-600"
+            }`} />
+            <span className="text-[11px] text-gray-400 whitespace-nowrap">
+              {running ? (connectedCount > 0 ? `${connectedCount}/${totalAccounts}` : "…") : "Off"}
+            </span>
           </div>
-        </div>
-      </div>
-
-      <div className="max-w-5xl mx-auto px-4 py-5 space-y-5">
-        {(startMut.error || stopMut.error) && (
-          <div className="p-3 bg-red-900/40 border border-red-700/60 rounded-xl text-sm text-red-300">
-            {(startMut.error as Error)?.message ?? (stopMut.error as Error)?.message}
-          </div>
-        )}
-
-        {/* Total balance banner */}
-        {totalBalance > 0 && (
-          <div className="rounded-xl border border-yellow-500/20 bg-yellow-500/5 px-5 py-3.5 flex items-center justify-between">
-            <div className="flex items-center gap-2.5">
-              <Wallet className="w-5 h-5 text-yellow-400" />
-              <span className="text-sm font-semibold text-yellow-300">Total Balance Across All Accounts</span>
-            </div>
-            <span className="text-xl font-bold text-yellow-400 font-mono">{totalBalance.toLocaleString()}</span>
-          </div>
-        )}
-
-        {/* Stat grid */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <StatCard
-            title="Claims Today"
-            value={(status?.totalClaimsToday ?? 0).toLocaleString()}
-            sub={`${totalAccounts} account(s)`}
-            icon={Zap}
-            accent="yellow"
-          />
-          <StatCard
-            title="Scrap Today"
-            value={(status?.totalScrapToday ?? 0).toLocaleString()}
-            sub="clover points"
-            icon={TrendingUp}
-            accent="green"
-          />
-          <StatCard
-            title="Accounts"
-            value={`${connectedCount} / ${totalAccounts}`}
-            sub={running ? "monitoring" : "stopped"}
-            icon={Shield}
-            accent={connectedCount > 0 ? "green" : "red"}
-          />
-          <StatCard
-            title={status?.nextAutoTransferAt ? "Next Transfer" : "Uptime"}
-            value={status?.nextAutoTransferAt ? <Countdown target={status.nextAutoTransferAt} /> : uptimeStr}
-            sub={status?.nextAutoTransferAt ? "auto-transfer" : running ? "running" : "offline"}
-            icon={status?.nextAutoTransferAt ? ArrowRightLeft : Clock}
-            accent="blue"
-          />
-        </div>
-
-        {/* Live fill-order status — visible from any tab */}
-        {status?.fillOrder && (
-          <LiveTransferBanner
-            fillOrder={status.fillOrder}
-            onCancel={() => cancelFillMut.mutate()}
-          />
-        )}
-
-        {/* Tabs */}
-        <Tabs defaultValue="logs" className="space-y-4">
-          <TabsList className="bg-gray-900/60 border border-gray-700/60 rounded-xl p-1 h-auto flex-wrap gap-1">
-            {[
-              { value: "logs",     label: "Live Logs",  icon: Activity },
-              { value: "accounts", label: "Accounts",   icon: Users },
-              { value: "history",  label: "Events",     icon: History },
-            ].map(({ value, label, icon: Icon }) => (
-              <TabsTrigger
-                key={value}
-                value={value}
-                className="data-[state=active]:bg-gray-700 data-[state=active]:text-white text-gray-400 rounded-lg px-3 py-1.5 text-xs font-medium flex items-center gap-1.5"
-              >
-                <Icon className="w-3.5 h-3.5" />
-                {label}
-              </TabsTrigger>
-            ))}
-            {/* Transfer tab — shows orange dot when a fill order is active */}
-            <TabsTrigger
-              value="transfer"
-              className="data-[state=active]:bg-gray-700 data-[state=active]:text-white text-gray-400 rounded-lg px-3 py-1.5 text-xs font-medium flex items-center gap-1.5 relative"
+          {running ? (
+            <button
+              onClick={() => stopMut.mutate()}
+              disabled={stopMut.isPending}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-red-600 hover:bg-red-500 disabled:opacity-60 text-white text-xs font-semibold rounded-full transition-colors"
             >
-              <ArrowRightLeft className="w-3.5 h-3.5" />
-              Transfer
-              {status?.fillOrder && !status.fillOrder.done && (
-                <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-blue-400 animate-pulse" />
-              )}
-            </TabsTrigger>
-            <TabsTrigger value="config" className="data-[state=active]:bg-gray-700 data-[state=active]:text-white text-gray-400 rounded-lg px-3 py-1.5 text-xs font-medium">
-              ⚙️ Config
-            </TabsTrigger>
-          </TabsList>
+              <Square className="w-3 h-3" /> Stop
+            </button>
+          ) : (
+            <button
+              onClick={() => startMut.mutate()}
+              disabled={startMut.isPending}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-60 text-white text-xs font-semibold rounded-full transition-colors"
+            >
+              {startMut.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : <Play className="w-3 h-3" />}
+              Start
+            </button>
+          )}
+        </div>
+      </header>
 
-          {/* Live Logs */}
-          <TabsContent value="logs">
+      {/* ── Scrollable content ── */}
+      <main className="flex-1 overflow-y-auto">
+        <div className="max-w-3xl mx-auto px-4 pt-4 pb-24 space-y-4">
+
+          {(startMut.error || stopMut.error) && (
+            <div className="p-3 bg-red-900/40 border border-red-700/60 rounded-xl text-sm text-red-300">
+              {(startMut.error as Error)?.message ?? (stopMut.error as Error)?.message}
+            </div>
+          )}
+
+          {/* ── Stats ── */}
+          {tab !== "config" && (
+            <>
+              {totalBalance > 0 && (
+                <div className="rounded-xl border border-yellow-500/20 bg-yellow-500/5 px-4 py-3 flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2">
+                    <Wallet className="w-4 h-4 text-yellow-400 shrink-0" />
+                    <span className="text-xs font-semibold text-yellow-300">Total Balance</span>
+                  </div>
+                  <span className="text-lg font-bold text-yellow-400 font-mono">{totalBalance.toLocaleString()}</span>
+                </div>
+              )}
+
+              <div className="grid grid-cols-2 gap-2.5">
+                <StatCard title="Claims Today" value={(status?.totalClaimsToday ?? 0).toLocaleString()} sub={`${totalAccounts} account(s)`} icon={Zap} accent="yellow" />
+                <StatCard title="Scrap Today" value={(status?.totalScrapToday ?? 0).toLocaleString()} sub="clover points" icon={TrendingUp} accent="green" />
+                <StatCard title="Accounts" value={`${connectedCount} / ${totalAccounts}`} sub={running ? "monitoring" : "stopped"} icon={Users} accent={connectedCount > 0 ? "green" : "red"} />
+                <StatCard
+                  title={status?.nextAutoTransferAt ? "Next Transfer" : "Uptime"}
+                  value={status?.nextAutoTransferAt ? <Countdown target={status.nextAutoTransferAt} /> : uptimeStr}
+                  sub={status?.nextAutoTransferAt ? "auto-transfer" : running ? "running" : "offline"}
+                  icon={status?.nextAutoTransferAt ? ArrowRightLeft : Clock}
+                  accent="blue"
+                />
+              </div>
+
+              {status?.fillOrder && (
+                <LiveTransferBanner fillOrder={status.fillOrder} onCancel={() => cancelFillMut.mutate()} />
+              )}
+            </>
+          )}
+
+          {/* ── Tab content ── */}
+          {tab === "logs" && (
             <div className="rounded-xl border border-gray-700/60 bg-gray-900/40 overflow-hidden">
               <div className="flex items-center justify-between px-4 py-2.5 border-b border-gray-700/60">
                 <div className="flex items-center gap-2">
                   <Radio className="w-3.5 h-3.5 text-emerald-400 animate-pulse" />
-                  <span className="text-xs font-semibold text-gray-300">Bot Activity Log</span>
-                  <span className="text-[10px] text-gray-600">({(logsData?.logs ?? []).length} entries)</span>
+                  <span className="text-xs font-semibold text-gray-300">Live Log</span>
+                  <span className="text-[10px] text-gray-600">({(logsData?.logs ?? []).length})</span>
                 </div>
                 <button
-                  className={`text-[11px] px-2 py-0.5 rounded border ${autoScroll ? "border-emerald-600/50 text-emerald-400" : "border-gray-600 text-gray-500"}`}
+                  className={`text-[11px] px-2 py-0.5 rounded-full border transition-colors ${autoScroll ? "border-emerald-600/50 text-emerald-400 bg-emerald-900/20" : "border-gray-600 text-gray-500"}`}
                   onClick={() => setAutoScroll((v) => !v)}
                 >
-                  Auto-scroll {autoScroll ? "ON" : "OFF"}
+                  {autoScroll ? "Auto ▼" : "Auto ▼ off"}
                 </button>
               </div>
-              <div ref={logRef} className="h-[420px] overflow-y-auto font-mono text-xs space-y-0 bg-gray-950/80 p-3">
+              <div ref={logRef} className="h-[55vh] overflow-y-auto bg-gray-950/80 p-3 space-y-px">
                 {(logsData?.logs ?? []).length === 0 ? (
-                  <p className="text-gray-600 text-center mt-8">No logs yet. Start the bot to see activity.</p>
+                  <p className="text-gray-600 text-center mt-12 text-sm">No logs yet. Start the bot.</p>
                 ) : (
-                  (logsData?.logs ?? []).map((log: any, i: number) => (
-                    <LogEntry key={i} log={log} />
-                  ))
+                  (logsData?.logs ?? []).map((log: any, i: number) => <LogEntry key={i} log={log} />)
                 )}
               </div>
             </div>
-          </TabsContent>
+          )}
 
-          {/* Accounts */}
-          <TabsContent value="accounts">
+          {tab === "accounts" && (
             <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <div className="text-xs text-gray-500">
-                  {accounts.length} account(s)
-                  {totalBalance > 0 && (
-                    <span className="ml-2 text-yellow-500">
-                      · <span className="font-mono">{totalBalance.toLocaleString()}</span> total balance
-                    </span>
-                  )}
-                </div>
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <span className="text-xs text-gray-500">
+                  {accounts.length} account{accounts.length !== 1 ? "s" : ""}
+                  {totalBalance > 0 && <span className="ml-2 text-yellow-500 font-mono">· {totalBalance.toLocaleString()} total</span>}
+                </span>
                 <RefreshBalancesButton onRefreshing={() => setFastPoll(true)} />
               </div>
               {accounts.length === 0 ? (
-                <div className="rounded-xl border border-gray-700/60 bg-gray-900/40 py-10 text-center text-gray-600 text-sm">
-                  No accounts configured. Go to Config → Accounts to add some.
+                <div className="rounded-xl border border-gray-700/60 bg-gray-900/40 py-12 text-center text-gray-600 text-sm">
+                  No accounts yet.{" "}
+                  <button className="text-indigo-400 underline" onClick={() => setTab("config")}>Go to Config</button> to add some.
                 </div>
               ) : (
                 accounts.map((acc: any) => (
-                  <AccountCard
-                    key={acc.id}
-                    account={acc}
-                    defaultRecipient={settings?.autoTransferRecipient ?? ""}
-                  />
+                  <AccountCard key={acc.id} account={acc} defaultRecipient={settings?.autoTransferRecipient ?? ""} />
                 ))
               )}
             </div>
-          </TabsContent>
+          )}
 
-          {/* Transfer */}
-          <TabsContent value="transfer">
-            <div className="max-w-md">
-              <TransferPanel fillOrder={status?.fillOrder ?? null} />
-            </div>
-          </TabsContent>
+          {tab === "transfer" && (
+            <TransferPanel fillOrder={status?.fillOrder ?? null} />
+          )}
 
-          {/* Events */}
-          <TabsContent value="history">
-            <EventsAndTransfers />
-          </TabsContent>
+          {tab === "history" && <EventsAndTransfers />}
 
-          {/* Config */}
-          <TabsContent value="config">
-            <ConfigPanel />
-          </TabsContent>
-        </Tabs>
-      </div>
+          {tab === "config" && <ConfigPanel />}
+        </div>
+      </main>
+
+      {/* ── Fixed bottom navigation ── */}
+      <nav className="fixed bottom-0 inset-x-0 z-20 bg-gray-900/95 backdrop-blur-md border-t border-gray-700/60">
+        <div className="max-w-3xl mx-auto flex">
+          {navItems.map(({ key, label, icon: Icon }) => {
+            const active = tab === key;
+            const showDot = key === "transfer" && hasFill;
+            return (
+              <button
+                key={key}
+                onClick={() => setTab(key)}
+                className={`flex-1 flex flex-col items-center justify-center gap-0.5 py-3 px-1 relative transition-colors ${
+                  active ? "text-white" : "text-gray-500 hover:text-gray-300"
+                }`}
+              >
+                <div className="relative">
+                  <Icon className={`w-5 h-5 transition-transform ${active ? "scale-110" : ""}`} />
+                  {showDot && (
+                    <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-blue-400 animate-pulse" />
+                  )}
+                </div>
+                <span className={`text-[10px] font-medium leading-none ${active ? "text-white" : "text-gray-600"}`}>
+                  {label}
+                </span>
+                {active && (
+                  <span className="absolute top-0 inset-x-2 h-0.5 rounded-b-full bg-emerald-400" />
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </nav>
     </div>
   );
 }

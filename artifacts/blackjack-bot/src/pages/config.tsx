@@ -65,6 +65,8 @@ function AccountRow({ account, onToggle, onDelete }: {
       apiFetch(`/api/accounts/${account.id}/relink`, { method: "POST" }),
   });
 
+  const [confirmDelete, setConfirmDelete] = useState(false);
+
   function saveIgn() {
     const val = ign.trim();
     if (val !== (account.ign ?? "")) ignMut.mutate(val);
@@ -78,15 +80,15 @@ function AccountRow({ account, onToggle, onDelete }: {
   };
 
   return (
-    <div className="p-3 bg-gray-800 rounded-lg space-y-2">
+    <div className="p-3 sm:p-4 bg-gray-800 rounded-xl space-y-3 border border-gray-700/50">
       <div className="flex items-center gap-3">
-        <span className={`w-2 h-2 rounded-full shrink-0 ${statusColor[account.connectionStatus] ?? "bg-gray-600"}`} />
-        <span className="text-sm font-medium text-white flex-1 min-w-0 truncate">
-          {account.label}
+        <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${statusColor[account.connectionStatus] ?? "bg-gray-600"}`} />
+        <div className="flex-1 min-w-0">
+          <span className="text-sm font-semibold text-white truncate block">{account.label}</span>
           {account.username && (
-            <span className="text-gray-500 font-normal ml-2">@{account.username}</span>
+            <span className="text-[11px] text-gray-500">@{account.username}</span>
           )}
-        </span>
+        </div>
         <Switch
           checked={account.enabled}
           onCheckedChange={(v) => onToggle(account.id, v)}
@@ -94,32 +96,58 @@ function AccountRow({ account, onToggle, onDelete }: {
         <button
           onClick={() => relinkMut.mutate()}
           disabled={!account.connected || relinkMut.isPending}
-          className="text-gray-600 hover:text-indigo-400 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+          className="p-2 text-gray-600 hover:text-indigo-400 transition-colors disabled:opacity-30 disabled:cursor-not-allowed rounded-lg hover:bg-gray-700/50"
           title={account.connected ? "Relink this account now" : "Account must be connected to relink"}
         >
           {relinkMut.isPending
-            ? <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-            : <Link className="w-3.5 h-3.5" />}
+            ? <RefreshCw className="w-4 h-4 animate-spin" />
+            : <Link className="w-4 h-4" />}
         </button>
-        <button
-          onClick={() => {
-            if (confirm(`Remove "${account.label}"? This cannot be undone.`)) onDelete(account.id);
-          }}
-          className="text-gray-600 hover:text-red-400 transition-colors ml-1"
-          title="Delete account"
-        >
-          <Trash2 className="w-3.5 h-3.5" />
-        </button>
+        {!confirmDelete ? (
+          <button
+            onClick={() => setConfirmDelete(true)}
+            className="p-2 text-gray-600 hover:text-red-400 transition-colors rounded-lg hover:bg-gray-700/50"
+            title="Delete account"
+          >
+            <Trash2 className="w-4 h-4" />
+          </button>
+        ) : (
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={() => onDelete(account.id)}
+              className="px-2.5 py-1 bg-red-600 hover:bg-red-500 text-white text-xs font-medium rounded-lg transition-colors"
+            >
+              Delete
+            </button>
+            <button
+              onClick={() => setConfirmDelete(false)}
+              className="px-2.5 py-1 bg-gray-700 hover:bg-gray-600 text-gray-300 text-xs rounded-lg transition-colors"
+            >
+              No
+            </button>
+          </div>
+        )}
       </div>
-      <div className="flex gap-4 pl-5 text-xs text-gray-500">
-        <span>Balance: <span className="text-yellow-400">{account.balance.toLocaleString()}</span></span>
-        <span>Claimed: <span className="text-green-400">{account.totalClaimed.toLocaleString()}</span></span>
-        <span>Sent: <span className="text-blue-400">{account.totalTransferred.toLocaleString()}</span></span>
+
+      <div className="grid grid-cols-3 gap-2 text-[11px]">
+        <div className="bg-gray-900/60 rounded-lg px-2 py-2 text-center">
+          <div className="text-gray-500 mb-0.5">Balance</div>
+          <div className="text-yellow-400 font-bold font-mono">{account.balance.toLocaleString()}</div>
+        </div>
+        <div className="bg-gray-900/60 rounded-lg px-2 py-2 text-center">
+          <div className="text-gray-500 mb-0.5">Claimed</div>
+          <div className="text-green-400 font-bold font-mono">{account.totalClaimed.toLocaleString()}</div>
+        </div>
+        <div className="bg-gray-900/60 rounded-lg px-2 py-2 text-center">
+          <div className="text-gray-500 mb-0.5">Sent</div>
+          <div className="text-blue-400 font-bold font-mono">{account.totalTransferred.toLocaleString()}</div>
+        </div>
       </div>
-      <div className="pl-5 flex items-center gap-2">
-        <span className="text-[10px] text-gray-600 uppercase tracking-wider shrink-0">IGN</span>
+
+      <div className="flex items-center gap-2">
+        <span className="text-[10px] text-gray-600 uppercase tracking-wider shrink-0 w-7">IGN</span>
         <input
-          className="flex-1 bg-gray-700/50 border border-gray-600/50 rounded px-2 py-0.5 text-xs text-white placeholder:text-gray-600 focus:outline-none focus:border-indigo-500/50 transition-colors"
+          className="flex-1 bg-gray-700/50 border border-gray-600/50 rounded-lg px-3 py-2 text-sm text-white placeholder:text-gray-600 focus:outline-none focus:border-indigo-500/50 transition-colors"
           placeholder="In-game username…"
           value={ign}
           onChange={(e) => setIgn(e.target.value)}
@@ -128,7 +156,7 @@ function AccountRow({ account, onToggle, onDelete }: {
         />
         {ignMut.isPending && <span className="text-[10px] text-gray-600 shrink-0">saving…</span>}
         {ignMut.isSuccess && !ignMut.isPending && (
-          <span className="text-[10px] text-green-600 shrink-0">✓</span>
+          <span className="text-[10px] text-green-500 shrink-0">✓</span>
         )}
       </div>
     </div>

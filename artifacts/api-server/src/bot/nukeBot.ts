@@ -1291,6 +1291,16 @@ class NukeBot {
     return [...this.runtimes.values()].filter((r) => r.status === "connected" && r.client).length;
   }
 
+  /** Cleanly disconnect and remove an account from the runtime (called on delete). */
+  hotDisconnectAccount(accountId: number): void {
+    const runtime = this.runtimes.get(accountId);
+    if (!runtime) return;
+    runtime.status = "disconnected";
+    try { runtime.client?.destroy(); } catch {}
+    this.runtimes.delete(accountId);
+    botLog.info(`Account #${accountId} removed from runtime.`, accountId);
+  }
+
   /** Trigger join+link for a single account on demand (Relink button). */
   async triggerJoinAndLinkForAccount(accountId: number): Promise<void> {
     const runtime = this.runtimes.get(accountId);
