@@ -15,6 +15,7 @@ export const accountsTable = pgTable("accounts", {
   ign: text("ign"),
   enabled: boolean("enabled").notNull().default(true),
   manual: boolean("manual").notNull().default(false),
+  deleted: boolean("deleted").notNull().default(false),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });

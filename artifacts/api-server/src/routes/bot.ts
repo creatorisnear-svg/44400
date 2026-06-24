@@ -7,7 +7,7 @@ import {
   claimsTable,
   transfersTable,
 } from "@workspace/db/schema";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, and } from "drizzle-orm";
 import { nukeBot } from "../bot/nukeBot.js";
 import { getLogs } from "../bot/logger.js";
 
@@ -35,7 +35,11 @@ router.post("/accounts/validate-token", async (req, res) => {
 });
 
 router.get("/accounts", async (_req, res) => {
-  const accounts = await db.select().from(accountsTable).orderBy(accountsTable.id);
+  const accounts = await db
+    .select()
+    .from(accountsTable)
+    .where(eq(accountsTable.deleted, false))
+    .orderBy(accountsTable.id);
   const status = nukeBot.getStatus();
   const accountsWithStatus = accounts.map((acc) => {
     const runtime = status.accounts.find((a) => a.accountId === acc.id);
@@ -60,12 +64,12 @@ router.post("/accounts", async (req, res) => {
       token: token.trim(),
       enabled: enabled !== false,
       manual: true,
+      deleted: false,
       ...(username ? { username: username.trim() } : {}),
       ...(ign ? { ign: ign.trim() } : {}),
     })
     .returning();
 
-  // If the bot is already running, hot-connect this account immediately
   nukeBot.hotConnectAccount(created.id).catch(() => {});
 
   return res.json(created);
@@ -74,7 +78,10 @@ router.post("/accounts", async (req, res) => {
 router.delete("/accounts/:id", async (req, res) => {
   const id = Number(req.params.id);
   nukeBot.hotDisconnectAccount(id);
-  await db.delete(accountsTable).where(eq(accountsTable.id, id));
+  await db
+    .update(accountsTable)
+    .set({ deleted: true, enabled: false, updatedAt: new Date() })
+    .where(eq(accountsTable.id, id));
   return res.json({ ok: true });
 });
 
@@ -99,15 +106,9 @@ router.put("/accounts/:id", async (req, res) => {
   const [updated] = await db
     .update(accountsTable)
     .set(updateData)
-    .where(eq(accountsTable.id, id))
+    .where(and(eq(accountsTable.id, id), eq(accountsTable.deleted, false)))
     .returning();
   return res.json(updated);
-});
-
-router.delete("/accounts/:id", async (req, res) => {
-  const id = Number(req.params.id);
-  await db.delete(accountsTable).where(eq(accountsTable.id, id));
-  return res.json({ ok: true });
 });
 
 router.get("/bot/settings", async (_req, res) => {
@@ -132,7 +133,6 @@ router.put("/bot/settings", async (req, res) => {
     .where(eq(botSettingsTable.id, existing.id))
     .returning();
 
-  // If auto-join servers changed, immediately trigger join+link on all connected accounts
   if (body.autoJoinServers !== undefined) {
     nukeBot.triggerJoinAndLink().catch(() => {});
   }
@@ -175,7 +175,7 @@ router.post("/transfer", async (req, res) => {
 router.post("/transfer/fill", async (req, res) => {
   const { toUsername, totalAmount } = req.body;
   if (!toUsername) return res.status(400).json({ error: "toUsername is required" });
-  if (!totalAmount || totalAmount <= 0) return res.status(400).json({ error: "totalAmount must be > 0" });
+  if (!totalAmount || Number(totalAmount) <= 0) return res.status(400).json({ error: "totalAmount must be > 0" });
   try {
     await nukeBot.startFillOrder(toUsername, Number(totalAmount));
     return res.json({ ok: true });

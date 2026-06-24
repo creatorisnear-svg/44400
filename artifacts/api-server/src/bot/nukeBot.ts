@@ -351,6 +351,7 @@ class NukeBot {
 
     botLog.info(`Syncing ${parsed.length} account(s) from DISCORD_ACCOUNTS env var...`);
 
+    // Fetch ALL accounts including soft-deleted ones so we never re-insert deleted accounts
     const existing = await db.select().from(accountsTable);
     const existingByLabel = new Map(existing.map((a) => [a.label, a]));
     const envLabels = new Set(parsed.map((p) => p.label));
@@ -358,15 +359,21 @@ class NukeBot {
     for (const { label, token } of parsed) {
       const acc = existingByLabel.get(label);
       if (acc) {
+        // If this account was manually deleted (deleted=true), respect that and skip it
+        if ((acc as any).deleted) {
+          botLog.info(`Skipping deleted account "${label}" from env sync.`);
+          continue;
+        }
         await db.update(accountsTable)
           .set({ token, enabled: true, updatedAt: new Date() })
           .where(eq(accountsTable.id, acc.id));
       } else {
-        await db.insert(accountsTable).values({ label, token, enabled: true });
+        await db.insert(accountsTable).values({ label, token, enabled: true, deleted: false });
       }
     }
 
     for (const acc of existing) {
+      if ((acc as any).deleted) continue; // never touch deleted accounts
       if (!envLabels.has(acc.label) && !(acc as any).manual) {
         await db.update(accountsTable)
           .set({ enabled: false, updatedAt: new Date() })
@@ -390,7 +397,8 @@ class NukeBot {
     const accounts = await db
       .select()
       .from(accountsTable)
-      .where(eq(accountsTable.enabled, true));
+      .where(eq(accountsTable.enabled, true))
+      .then((rows) => rows.filter((a) => !(a as any).deleted));
 
     if (accounts.length === 0) {
       throw new Error("No enabled accounts found. Add at least one account first.");
@@ -1374,28 +1382,33 @@ class NukeBot {
     }, 15_000);
 
     async function onMsg(msg: any) {
-      // Must be from the clover bot in this channel
-      if (settings.cloverId && (msg.author?.id ?? msg.authorId) !== settings.cloverId) return;
-      if ((msg.channelId ?? msg.channel_id) !== channel.id) return;
-
-      const embed = msg.embeds?.[0];
-      const title: string = embed?.title ?? embed?.data?.title ?? "";
-      if (!/confirm.{0,8}transfer/i.test(title)) return;
-
-      const confirmBtn = (msg.components ?? [])
-        .flatMap((r: any) => r.components ?? [])
-        .find((c: any) => /^confirm$/i.test(c.label ?? ""));
-      if (!confirmBtn) return;
-
-      clearTimeout(timer);
-      client.off("messageCreate", onMsg);
-
       try {
-        await msg.clickButton(confirmBtn.customId);
-      } catch {
-        // Ephemeral interactions often throw even when they succeed
+        // Must be from the clover bot in this channel
+        if (settings.cloverId && (msg.author?.id ?? msg.authorId) !== settings.cloverId) return;
+        if ((msg.channelId ?? msg.channel_id) !== channel.id) return;
+
+        const embed = msg.embeds?.[0];
+        const title: string = embed?.title ?? embed?.data?.title ?? "";
+        if (!/confirm.{0,8}transfer/i.test(title)) return;
+
+        const confirmBtn = (msg.components ?? [])
+          .flatMap((r: any) => r.components ?? [])
+          .find((c: any) => /^confirm$/i.test(c.label ?? ""));
+        if (!confirmBtn) return;
+
+        clearTimeout(timer);
+        client.off("messageCreate", onMsg);
+
+        try {
+          await msg.clickButton(confirmBtn.customId);
+        } catch {
+          // Ephemeral interactions often throw even when they succeed
+        }
+        resolveConfirm(true);
+      } catch (handlerErr) {
+        // Swallow all errors from the event handler to prevent unhandled promise rejections
+        botLog.warn(`[${ctx.label}] Transfer confirm handler error: ${(handlerErr as Error).message}`);
       }
-      resolveConfirm(true);
     }
 
     client.on("messageCreate", onMsg);
