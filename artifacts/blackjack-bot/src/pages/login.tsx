@@ -39,7 +39,7 @@ export default function Login({ onAuth }: { onAuth: () => void }) {
           <div className="inline-flex items-center justify-center w-[72px] h-[72px] rounded-[22px] bg-yellow-500/10 border border-yellow-500/25 mb-5 shadow-[0_0_50px_rgba(234,179,8,0.15)]">
             <span className="text-[34px] leading-none">☢️</span>
           </div>
-          <h1 className="text-[22px] font-bold text-white tracking-tight">Nuke Bot</h1>
+          <h1 className="text-[22px] font-bold text-white tracking-tight">AVIV</h1>
           <p className="text-[13px] text-zinc-500 mt-1">KA0SBOT · Clover Nuclear Auto-Claimer</p>
         </div>
 

@@ -744,7 +744,7 @@ export default function Dashboard() {
             <span className="text-base leading-none">☢️</span>
           </div>
           <div className="flex-1 min-w-0">
-            <div className="text-sm font-black text-white leading-none tracking-tight">Nuke Bot</div>
+            <div className="text-sm font-black text-white leading-none tracking-tight">AVIV</div>
             <div className="text-[10px] text-gray-600 leading-none mt-0.5 hidden sm:block">Clover Points Auto-Claimer</div>
           </div>
 

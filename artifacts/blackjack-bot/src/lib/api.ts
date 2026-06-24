@@ -31,7 +31,12 @@ export async function apiFetch(path: string, opts?: RequestInit): Promise<any> {
 
   if (!res.ok) {
     const text = await res.text().catch(() => res.statusText);
-    throw new Error(text || res.statusText);
+    let msg = text || res.statusText;
+    try {
+      const json = JSON.parse(msg);
+      if (json?.error) msg = json.error;
+    } catch {}
+    throw new Error(msg);
   }
 
   const ct = res.headers.get("content-type") ?? "";

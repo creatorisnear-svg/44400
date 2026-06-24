@@ -1,4 +1,4 @@
-# ☢️ Nuke Bot — Clover Points Auto-Claimer
+# ☢️ AVIV — Clover Points Auto-Claimer
 
 A multi-account Discord self-bot that automatically detects and claims Nuclear Fallout events on KA0SBOT/Clover servers, then transfers points to a master account.
 

@@ -52,3 +52,11 @@ server.on("error", (err) => {
   logger.error({ err }, "Error listening on port");
   process.exit(1);
 });
+
+process.on("unhandledRejection", (reason) => {
+  logger.warn({ reason }, "Unhandled promise rejection (caught at process level — server stays up)");
+});
+
+process.on("uncaughtException", (err) => {
+  logger.error({ err }, "Uncaught exception (caught at process level — server stays up)");
+});
