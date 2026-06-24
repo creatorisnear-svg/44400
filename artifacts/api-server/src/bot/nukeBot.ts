@@ -876,6 +876,7 @@ class NukeBot {
           : null;
 
         if (!selectComp && !buttonComp) {
+          error = "No interactable component (all buttons disabled or expired)";
           botLog.warn(`[${runtime.label}] no interactable component found`, runtime.accountId);
         } else {
           // Helper: extract text from any response-like object
@@ -1018,6 +1019,7 @@ class NukeBot {
               } catch (selErr) {
                 const selErrMsg = (selErr as Error).message;
                 if (selErrMsg.includes("SELECT_MENU_NOT_FOUND")) {
+                  error = "Select menu not found — component expired or nuke already closed";
                   botLog.warn(`[${runtime.label}] select menu not found in message (component may have expired)`, runtime.accountId);
                 } else {
                   // Error thrown AFTER Discord received the interaction — still mark sent
@@ -1076,12 +1078,15 @@ class NukeBot {
           }
         }
       } else if (msg) {
+        error = "Nuke message has no components (buttons missing or already removed)";
         botLog.warn(`[${runtime.label}] nuke message has no components`, runtime.accountId);
       } else {
+        error = `Could not fetch nuke message ${triggerMsg.id}`;
         botLog.warn(`[${runtime.label}] could not fetch nuke message ${triggerMsg.id}`, runtime.accountId);
       }
 
       if (!interactionSent && msg && (msg.components?.length ?? 0) > 0) {
+        if (!error) error = "Interaction not sent despite having components";
         botLog.warn(`[${runtime.label}] no interaction sent — cannot claim`, runtime.accountId);
       }
     } catch (err) {
