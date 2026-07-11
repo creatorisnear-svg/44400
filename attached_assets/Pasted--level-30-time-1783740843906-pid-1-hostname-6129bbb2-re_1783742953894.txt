@@ -1,0 +1,581 @@
+{"level":30,"time":1783740843906,"pid":1,"hostname":"6129bbb2","req":{"id":2387,"method":"HEAD","url":"/api/healthz"},"res":{"statusCode":200},"responseTime":1,"msg":"request completed"}
+{"level":30,"time":1783741013031,"pid":1,"hostname":"6129bbb2","req":{"id":2388,"method":"HEAD","url":"/health"},"res":{"statusCode":200},"responseTime":0,"msg":"request completed"}
+{"level":30,"time":1783741013480,"pid":1,"hostname":"6129bbb2","req":{"id":2389,"method":"HEAD","url":"/health"},"res":{"statusCode":200},"responseTime":1,"msg":"request completed"}
+{"level":30,"time":1783741091357,"pid":1,"hostname":"6129bbb2","req":{"id":2390,"method":"HEAD","url":"/"},"res":{"statusCode":200},"responseTime":1,"msg":"request completed"}
+{"level":30,"time":1783741147398,"pid":1,"hostname":"6129bbb2","req":{"id":2391,"method":"HEAD","url":"/api/healthz"},"res":{"statusCode":200},"responseTime":1,"msg":"request completed"}
+{"level":30,"time":1783741317962,"pid":1,"hostname":"6129bbb2","req":{"id":2392,"method":"HEAD","url":"/health"},"res":{"statusCode":200},"responseTime":1,"msg":"request completed"}
+{"level":30,"time":1783741318769,"pid":1,"hostname":"6129bbb2","req":{"id":2393,"method":"HEAD","url":"/health"},"res":{"statusCode":200},"responseTime":0,"msg":"request completed"}
+{"level":30,"time":1783741395442,"pid":1,"hostname":"6129bbb2","req":{"id":2394,"method":"HEAD","url":"/"},"res":{"statusCode":200},"responseTime":1,"msg":"request completed"}
+{"level":30,"time":1783741452039,"pid":1,"hostname":"6129bbb2","req":{"id":2395,"method":"HEAD","url":"/api/healthz"},"res":{"statusCode":200},"responseTime":1,"msg":"request completed"}
+{"level":30,"time":1783741623282,"pid":1,"hostname":"6129bbb2","req":{"id":2396,"method":"HEAD","url":"/health"},"res":{"statusCode":200},"responseTime":1,"msg":"request completed"}
+{"level":30,"time":1783741624493,"pid":1,"hostname":"6129bbb2","req":{"id":2397,"method":"HEAD","url":"/health"},"res":{"statusCode":200},"responseTime":1,"msg":"request completed"}
+{"level":30,"time":1783741701198,"pid":1,"hostname":"6129bbb2","req":{"id":2398,"method":"HEAD","url":"/"},"res":{"statusCode":200},"responseTime":0,"msg":"request completed"}
+{"level":30,"time":1783741756836,"pid":1,"hostname":"6129bbb2","req":{"id":2399,"method":"HEAD","url":"/api/healthz"},"res":{"statusCode":200},"responseTime":1,"msg":"request completed"}
+{"level":30,"time":1783741927940,"pid":1,"hostname":"6129bbb2","req":{"id":2400,"method":"HEAD","url":"/health"},"res":{"statusCode":200},"responseTime":0,"msg":"request completed"}
+{"level":30,"time":1783741928566,"pid":1,"hostname":"6129bbb2","req":{"id":2401,"method":"HEAD","url":"/health"},"res":{"statusCode":200},"responseTime":1,"msg":"request completed"}
+{"level":30,"time":1783742006933,"pid":1,"hostname":"6129bbb2","req":{"id":2402,"method":"HEAD","url":"/"},"res":{"statusCode":200},"responseTime":1,"msg":"request completed"}
+{"level":30,"time":1783742061575,"pid":1,"hostname":"6129bbb2","req":{"id":2403,"method":"HEAD","url":"/api/healthz"},"res":{"statusCode":200},"responseTime":1,"msg":"request completed"}
+{"level":30,"time":1783742232733,"pid":1,"hostname":"6129bbb2","req":{"id":2404,"method":"HEAD","url":"/health"},"res":{"statusCode":200},"responseTime":1,"msg":"request completed"}
+{"level":30,"time":1783742232846,"pid":1,"hostname":"6129bbb2","req":{"id":2405,"method":"HEAD","url":"/health"},"res":{"statusCode":200},"responseTime":1,"msg":"request completed"}
+{"level":30,"time":1783742311237,"pid":1,"hostname":"6129bbb2","req":{"id":2406,"method":"HEAD","url":"/"},"res":{"statusCode":200},"responseTime":1,"msg":"request completed"}
+{"level":30,"time":1783742366057,"pid":1,"hostname":"6129bbb2","req":{"id":2407,"method":"HEAD","url":"/api/healthz"},"res":{"statusCode":200},"responseTime":0,"msg":"request completed"}
+{"level":30,"time":1783742537133,"pid":1,"hostname":"6129bbb2","req":{"id":2408,"method":"HEAD","url":"/health"},"res":{"statusCode":200},"responseTime":3,"msg":"request completed"}
+{"level":30,"time":1783742537714,"pid":1,"hostname":"6129bbb2","req":{"id":2409,"method":"HEAD","url":"/health"},"res":{"statusCode":200},"responseTime":1,"msg":"request completed"}
+Instance created. Preparing to start...
+Application exited with code 1. This usually indicates an application failure. Check that the command used to launch your application is correct.
+node:internal/modules/cjs/loader:1430
+  const err = new Error(message);
+              ^
+
+Error: Cannot find module 'prism-media'
+Require stack:
+- /app/artifacts/api-server/dist/index.mjs
+    at Function._resolveFilename (node:internal/modules/cjs/loader:1430:15)
+    at defaultResolveImpl (node:internal/modules/cjs/loader:1040:19)
+    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1045:22)
+    at Function._load (node:internal/modules/cjs/loader:1216:25)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:254:19)
+    at Module.require (node:internal/modules/cjs/loader:1527:12)
+    at require (node:internal/modules/helpers:147:16)
+    at ../../node_modules/.pnpm/discord.js-selfbot-v13@3.7.1/node_modules/discord.js-selfbot-v13/src/client/voice/player/MediaPlayer.js (/app/node_modules/.pnpm/discord.js-selfbot-v13@3.7.1/node_modules/discord.js-selfbot-v13/src/client/voice/player/MediaPlayer.js:22:15)
+    at __require2 (file:///app/artifacts/api-server/dist/index.mjs:22:50)
+    at ../../node_modules/.pnpm/discord.js-selfbot-v13@3.7.1/node_modules/discord.js-selfbot-v13/src/client/voice/VoiceConnection.js (/app/node_modules/.pnpm/discord.js-selfbot-v13@3.7.1/node_modules/discord.js-selfbot-v13/src/client/voice/VoiceConnection.js:9:21) {
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [ '/app/artifacts/api-server/dist/index.mjs' ]
+}
+
+Node.js v22.23.1
+Instance is starting... Waiting for health checks to pass.
+Application exited with code 1. This usually indicates an application failure. Check that the command used to launch your application is correct.
+Instance stopped.
+Instance created. Preparing to start...
+Application exited with code 1. This usually indicates an application failure. Check that the command used to launch your application is correct.
+node:internal/modules/cjs/loader:1430
+  const err = new Error(message);
+              ^
+
+Error: Cannot find module 'prism-media'
+Require stack:
+- /app/artifacts/api-server/dist/index.mjs
+    at Function._resolveFilename (node:internal/modules/cjs/loader:1430:15)
+    at defaultResolveImpl (node:internal/modules/cjs/loader:1040:19)
+    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1045:22)
+    at Function._load (node:internal/modules/cjs/loader:1216:25)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:254:19)
+    at Module.require (node:internal/modules/cjs/loader:1527:12)
+    at require (node:internal/modules/helpers:147:16)
+    at ../../node_modules/.pnpm/discord.js-selfbot-v13@3.7.1/node_modules/discord.js-selfbot-v13/src/client/voice/player/MediaPlayer.js (/app/node_modules/.pnpm/discord.js-selfbot-v13@3.7.1/node_modules/discord.js-selfbot-v13/src/client/voice/player/MediaPlayer.js:22:15)
+    at __require2 (file:///app/artifacts/api-server/dist/index.mjs:22:50)
+    at ../../node_modules/.pnpm/discord.js-selfbot-v13@3.7.1/node_modules/discord.js-selfbot-v13/src/client/voice/VoiceConnection.js (/app/node_modules/.pnpm/discord.js-selfbot-v13@3.7.1/node_modules/discord.js-selfbot-v13/src/client/voice/VoiceConnection.js:9:21) {
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [ '/app/artifacts/api-server/dist/index.mjs' ]
+}
+
+Node.js v22.23.1
+{"level":30,"time":1783742615679,"pid":1,"hostname":"6129bbb2","req":{"id":2410,"method":"HEAD","url":"/"},"res":{"statusCode":200},"responseTime":0,"msg":"request completed"}
+node:internal/modules/cjs/loader:1430
+  const err = new Error(message);
+              ^
+
+Error: Cannot find module 'prism-media'
+Require stack:
+- /app/artifacts/api-server/dist/index.mjs
+    at Function._resolveFilename (node:internal/modules/cjs/loader:1430:15)
+    at defaultResolveImpl (node:internal/modules/cjs/loader:1040:19)
+    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1045:22)
+    at Function._load (node:internal/modules/cjs/loader:1216:25)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:254:19)
+    at Module.require (node:internal/modules/cjs/loader:1527:12)
+    at require (node:internal/modules/helpers:147:16)
+    at ../../node_modules/.pnpm/discord.js-selfbot-v13@3.7.1/node_modules/discord.js-selfbot-v13/src/client/voice/player/MediaPlayer.js (/app/node_modules/.pnpm/discord.js-selfbot-v13@3.7.1/node_modules/discord.js-selfbot-v13/src/client/voice/player/MediaPlayer.js:22:15)
+    at __require2 (file:///app/artifacts/api-server/dist/index.mjs:22:50)
+    at ../../node_modules/.pnpm/discord.js-selfbot-v13@3.7.1/node_modules/discord.js-selfbot-v13/src/client/voice/VoiceConnection.js (/app/node_modules/.pnpm/discord.js-selfbot-v13@3.7.1/node_modules/discord.js-selfbot-v13/src/client/voice/VoiceConnection.js:9:21) {
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [ '/app/artifacts/api-server/dist/index.mjs' ]
+}
+
+Node.js v22.23.1
+Application exited with code 1. This usually indicates an application failure. Check that the command used to launch your application is correct.
+Instance stopped.
+{"level":30,"time":1783742672033,"pid":1,"hostname":"6129bbb2","req":{"id":2411,"method":"HEAD","url":"/api/healthz"},"res":{"statusCode":200},"responseTime":1,"msg":"request completed"}
+Instance created. Preparing to start...
+Starting download for registry01.prod.koyeb.com/k-5e2e38aa-d94e-499c-add9-041cfef81c4a/11d4d86e-35dc-4a78-b4b9-775d9ab757df:16f1d0ee-8050-4b6e-b3a0-d4b7fcdafc2d
+Download progress: 100% |[32m++++++++[0m| (3.2 MiB/s)
+(node:1) Warning: SECURITY WARNING: The SSL modes 'prefer', 'require', and 'verify-ca' are treated as aliases for 'verify-full'.
+In the next major version (pg-connection-string v3.0.0 and pg v9.0.0), these modes will adopt standard libpq semantics, which have weaker security guarantees.
+
+To prepare for this change:
+- If you want the current behavior, explicitly use 'sslmode=verify-full'
+- If you want libpq compatibility now, use 'uselibpqcompat=true&sslmode=require'
+
+See https://www.postgresql.org/docs/current/libpq-ssl.html for libpq SSL mode definitions.
+(Use `node --trace-warnings ...` to show where the warning was created)
+{"level":30,"time":1783742820097,"pid":1,"hostname":"3589b4ae","port":3000,"msg":"Server listening"}
+{"level":30,"time":1783742821014,"pid":1,"hostname":"3589b4ae","msg":"Auto-starting bot..."}
+[INFO] Starting 18 account(s)...
+[INFO] Connecting [Altspam6]...
+[INFO] Connecting [Alt9]...
+[INFO] Connecting [Alt8]...
+[INFO] Connecting [test100]...
+[INFO] Connecting [11]...
+[INFO] Connecting [Cloverisking]...
+[INFO] Connecting [Justin19]...
+[INFO] Connecting [AltSpam]...
+[INFO] Connecting [Cdj]...
+[INFO] Connecting [PLAY5]...
+[INFO] Connecting [12]...
+[INFO] Connecting [Spamalt4]...
+[INFO] Connecting [Spalt7]...
+[INFO] Connecting [Alt10]...
+[INFO] Connecting [SPAMALT3]...
+[INFO] Connecting [Copjustin]...
+[INFO] Connecting [Altspam2]...
+[INFO] Connecting [Cratot]...
+[INFO] [Altspam6] logged in as beamedbycj899_88042
+[INFO] [Alt8] logged in as aidenmez_71181
+[INFO] [test100] logged in as test100200._44687
+[INFO] [Justin19] logged in as bladeh20078599
+[INFO] [11] logged in as bloodyr0202_43679
+[INFO] [Alt10] logged in as chiefthomas77_37268
+[INFO] [PLAY5] logged in as lolnotfun9228
+[INFO] [Alt9] logged in as parbada2002_86184
+[INFO] [12] logged in as jordan674910
+[INFO] [Spamalt4] logged in as alexstien122_13198
+[INFO] [AltSpam] logged in as icantaim5_61234
+[INFO] [Cratot] logged in as crator2.
+[INFO] [Copjustin] logged in as blueaido23_27880
+[INFO] [Altspam2] logged in as deegtech_95429
+[INFO] [Cdj] logged in as creatortewst3458
+[INFO] [SPAMALT3] logged in as rambobeamd_20303
+[INFO] [Spalt7] logged in as countryboy1010567
+[INFO] [Cloverisking] logged in as cloverisking
+[INFO] Auto-transfer disabled — skipping scheduler.
+{"level":30,"time":1783742822349,"pid":1,"hostname":"3589b4ae","msg":"Bot auto-started"}
+Download complete for registry01.prod.koyeb.com/k-5e2e38aa-d94e-499c-add9-041cfef81c4a/11d4d86e-35dc-4a78-b4b9-775d9ab757df:16f1d0ee-8050-4b6e-b3a0-d4b7fcdafc2d
+Instance is starting... Waiting for health checks to pass.
+Instance is healthy. All health checks are passing.
+[INFO] [Altspam6] 🔍 Scanning recent messages for unclaimed nukes...
+[INFO] [Alt8] 🔍 Scanning recent messages for unclaimed nukes...
+[INFO] [test100] 🔍 Scanning recent messages for unclaimed nukes...
+[INFO] [Justin19] 🔍 Scanning recent messages for unclaimed nukes...
+[INFO] [11] 🔍 Scanning recent messages for unclaimed nukes...
+[INFO] [Alt10] 🔍 Scanning recent messages for unclaimed nukes...
+[INFO] [PLAY5] 🔍 Scanning recent messages for unclaimed nukes...
+[INFO] [Alt9] 🔍 Scanning recent messages for unclaimed nukes...
+[INFO] [12] 🔍 Scanning recent messages for unclaimed nukes...
+[INFO] [Spamalt4] 🔍 Scanning recent messages for unclaimed nukes...
+[INFO] [AltSpam] 🔍 Scanning recent messages for unclaimed nukes...
+[INFO] [Cratot] 🔍 Scanning recent messages for unclaimed nukes...
+[INFO] [Copjustin] 🔍 Scanning recent messages for unclaimed nukes...
+[INFO] [Altspam2] 🔍 Scanning recent messages for unclaimed nukes...
+[INFO] [Altspam6] Found 2 nuke(s) in history — trying to claim...
+[INFO] [Altspam6] components: type=STRING_SELECT customId=fallout_server_1525302281036107787 label=- disabled=false
+[INFO] [Alt8] Found 2 nuke(s) in history — trying to claim...
+[INFO] [Alt8] components: type=STRING_SELECT customId=fallout_server_1525302281036107787 label=- disabled=false
+[INFO] [Cdj] 🔍 Scanning recent messages for unclaimed nukes...
+[INFO] [SPAMALT3] 🔍 Scanning recent messages for unclaimed nukes...
+[INFO] [Spalt7] 🔍 Scanning recent messages for unclaimed nukes...
+[INFO] [Cloverisking] 🔍 Scanning recent messages for unclaimed nukes...
+[INFO] [test100] Found 2 nuke(s) in history — trying to claim...
+[INFO] [test100] components: type=STRING_SELECT customId=fallout_server_1525302281036107787 label=- disabled=false
+[INFO] [Justin19] Found 2 nuke(s) in history — trying to claim...
+[INFO] [Justin19] components: type=STRING_SELECT customId=fallout_server_1525302281036107787 label=- disabled=false
+[INFO] [11] Found 2 nuke(s) in history — trying to claim...
+[INFO] [11] components: type=STRING_SELECT customId=fallout_server_1525302281036107787 label=- disabled=false
+[INFO] [11] raw reply (MESSAGE_UPDATE): "  <@1502442397093724223>, Your purchase has been processed! Purchase Summary  Successful (Items Sent) • [100x] [32000x Hqm]"
+[INFO] [test100] raw reply (MESSAGE_UPDATE): "  <@1502442397093724223>, Your purchase has been processed! Purchase Summary  Successful (Items Sent) • [100x] [32000x Hqm]"
+[INFO] [Altspam6] raw reply (MESSAGE_UPDATE): "  <@1502442397093724223>, Your purchase has been processed! Purchase Summary  Successful (Items Sent) • [100x] [32000x Hqm]"
+[INFO] [Alt8] raw reply (MESSAGE_UPDATE): "  <@1502442397093724223>, Your purchase has been processed! Purchase Summary  Successful (Items Sent) • [100x] [32000x Hqm]"
+[INFO] [Justin19] raw reply (MESSAGE_UPDATE): "  <@1502442397093724223>, Your purchase has been processed! Purchase Summary  Successful (Items Sent) • [100x] [32000x Hqm]"
+[INFO] [Alt10] Found 2 nuke(s) in history — trying to claim...
+[INFO] [Alt10] components: type=STRING_SELECT customId=fallout_server_1525302281036107787 label=- disabled=false
+[INFO] [PLAY5] Found 2 nuke(s) in history — trying to claim...
+[INFO] [PLAY5] components: type=STRING_SELECT customId=fallout_server_1525302281036107787 label=- disabled=false
+[INFO] [Alt9] Found 2 nuke(s) in history — trying to claim...
+[INFO] [Alt9] components: type=STRING_SELECT customId=fallout_server_1525302281036107787 label=- disabled=false
+[INFO] [12] Found 2 nuke(s) in history — trying to claim...
+[INFO] [12] components: type=STRING_SELECT customId=fallout_server_1525302281036107787 label=- disabled=false
+[INFO] [Spamalt4] Found 2 nuke(s) in history — trying to claim...
+[INFO] [Spamalt4] components: type=STRING_SELECT customId=fallout_server_1525302281036107787 label=- disabled=false
+[INFO] [AltSpam] Found 2 nuke(s) in history — trying to claim...
+[INFO] [AltSpam] components: type=STRING_SELECT customId=fallout_server_1525302281036107787 label=- disabled=false
+[INFO] [Cratot] Found 2 nuke(s) in history — trying to claim...
+[INFO] [Cratot] components: type=STRING_SELECT customId=fallout_server_1525302281036107787 label=- disabled=false
+[WARN] [Copjustin] Could not fetch channel history: You need to verify your account in order to perform this action.
+[INFO] [Altspam2] Found 2 nuke(s) in history — trying to claim...
+[INFO] [Altspam2] components: type=STRING_SELECT customId=fallout_server_1525302281036107787 label=- disabled=false
+[INFO] [Cdj] Found 2 nuke(s) in history — trying to claim...
+[INFO] [Cdj] components: type=STRING_SELECT customId=fallout_server_1525302281036107787 label=- disabled=false
+[INFO] [SPAMALT3] Found 2 nuke(s) in history — trying to claim...
+[INFO] [SPAMALT3] components: type=STRING_SELECT customId=fallout_server_1525302281036107787 label=- disabled=false
+[INFO] [Spalt7] Found 2 nuke(s) in history — trying to claim...
+[INFO] [Spalt7] components: type=STRING_SELECT customId=fallout_server_1525302281036107787 label=- disabled=false
+[INFO] [Cloverisking] Found 2 nuke(s) in history — trying to claim...
+[INFO] [Cloverisking] components: type=STRING_SELECT customId=fallout_server_1525302281036107787 label=- disabled=false
+[INFO] [Alt8] select menu options: Server 3(3), Server 2(2), Server 1(1)
+[INFO] [test100] select menu options: Server 3(3), Server 2(2), Server 1(1)
+[INFO] [Altspam6] select menu options: Server 3(3), Server 2(2), Server 1(1)
+[INFO] [Alt10] select menu options: Server 3(3), Server 2(2), Server 1(1)
+[INFO] [PLAY5] select menu options: Server 3(3), Server 2(2), Server 1(1)
+[INFO] [AltSpam] select menu options: Server 3(3), Server 2(2), Server 1(1)
+[INFO] [Spamalt4] select menu options: Server 3(3), Server 2(2), Server 1(1)
+[INFO] [Justin19] select menu options: Server 3(3), Server 2(2), Server 1(1)
+[INFO] [Altspam2] select menu options: Server 3(3), Server 2(2), Server 1(1)
+[INFO] [11] select menu options: Server 3(3), Server 2(2), Server 1(1)
+[INFO] [Cratot] select menu options: Server 3(3), Server 2(2), Server 1(1)
+[INFO] [Alt9] select menu options: Server 3(3), Server 2(2), Server 1(1)
+[INFO] [12] select menu options: Server 3(3), Server 2(2), Server 1(1)
+[INFO] [Cdj] select menu options: Server 3(3), Server 2(2), Server 1(1)
+[INFO] [Alt8] raw reply (MESSAGE_CREATE): "  <@1519129405908058206> ❌ You've already claimed this reward!
+👥 **140** players have already claimed this reward."
+[INFO] [Spalt7] select menu options: Server 3(3), Server 2(2), Server 1(1)
+[INFO] [SPAMALT3] select menu options: Server 3(3), Server 2(2), Server 1(1)
+[INFO] [Cloverisking] select menu options: Server 3(3), Server 2(2), Server 1(1)
+[INFO] [test100] raw reply (MESSAGE_CREATE): "  <@1411860644734439455> ❌ You've already claimed this reward!
+👥 **140** players have already claimed this reward."
+[INFO] [Spamalt4] raw reply (MESSAGE_CREATE): "  <@1519104659464257587> ❌ You've already claimed this reward!
+👥 **140** players have already claimed this reward."
+[INFO] [Alt8] ✓ selected "Server 1"
+[INFO] [Alt8] selectMenu raw resp: " ☢️ NUCLEAR FALLOUT! ☢️ Claim the nuke
+
+☢️ **Dropped by:** <@224769722552418304>
+💰 **Nuke Reward:** 150,000 clover points
+⏰ **Expires:** <t:1783817199:R> "
+[INFO] [Alt8] ℹ️ Already claimed this nuke
+[INFO] [test100] ✓ selected "Server 1"
+[INFO] [test100] selectMenu raw resp: " ☢️ NUCLEAR FALLOUT! ☢️ Claim the nuke
+
+☢️ **Dropped by:** <@224769722552418304>
+💰 **Nuke Reward:** 150,000 clover points
+⏰ **Expires:** <t:1783817199:R> "
+[INFO] [test100] ℹ️ Already claimed this nuke
+[WARN] [Altspam6] selectMenu error (interaction was sent): No responsed from Application
+[WARN] [Alt10] selectMenu error (interaction was sent): No responsed from Application
+[WARN] [PLAY5] selectMenu error (interaction was sent): No responsed from Application
+[WARN] [AltSpam] selectMenu error (interaction was sent): No responsed from Application
+[INFO] [Spamalt4] ✓ selected "Server 1"
+[INFO] [Spamalt4] selectMenu raw resp: " ☢️ NUCLEAR FALLOUT! ☢️ Claim the nuke
+
+☢️ **Dropped by:** <@224769722552418304>
+💰 **Nuke Reward:** 150,000 clover points
+⏰ **Expires:** <t:1783817199:R> "
+[INFO] [Spamalt4] ℹ️ Already claimed this nuke
+[INFO] [Justin19] raw reply (MESSAGE_CREATE): "  <@576258472954429456> ❌ You've already claimed this reward!
+👥 **140** players have already claimed this reward."
+[INFO] [Justin19] ✓ selected "Server 1"
+[INFO] [Justin19] selectMenu raw resp: " ☢️ NUCLEAR FALLOUT! ☢️ Claim the nuke
+
+☢️ **Dropped by:** <@224769722552418304>
+💰 **Nuke Reward:** 150,000 clover points
+⏰ **Expires:** <t:1783817199:R> "
+[INFO] [Justin19] ℹ️ Already claimed this nuke
+[INFO] [Cratot] ✓ selected "Server 1"
+[INFO] [Cratot] selectMenu raw resp: " ☢️ NUCLEAR FALLOUT! ☢️ Claim the nuke
+
+☢️ **Dropped by:** <@224769722552418304>
+💰 **Nuke Reward:** 150,000 clover points
+⏰ **Expires:** <t:1783817199:R> "
+[WARN] [Altspam2] selectMenu error (interaction was sent): No responsed from Application
+[WARN] [11] selectMenu error (interaction was sent): No responsed from Application
+[WARN] [Alt9] selectMenu error (interaction was sent): No responsed from Application
+[INFO] [Alt8] components: type=STRING_SELECT customId=fallout_server_1525217421374521406 label=- disabled=false
+[WARN] [12] selectMenu error (interaction was sent): No responsed from Application
+[INFO] [test100] components: type=STRING_SELECT customId=fallout_server_1525217421374521406 label=- disabled=false
+[INFO] [Cdj] ✓ selected "Server 1"
+[INFO] [Cdj] selectMenu raw resp: " ☢️ NUCLEAR FALLOUT! ☢️ Claim the nuke
+
+☢️ **Dropped by:** <@224769722552418304>
+💰 **Nuke Reward:** 150,000 clover points
+⏰ **Expires:** <t:1783817199:R> "
+[WARN] [Spalt7] selectMenu error (interaction was sent): No responsed from Application
+[WARN] [SPAMALT3] selectMenu error (interaction was sent): No responsed from Application
+[INFO] [Cratot] raw reply (MESSAGE_CREATE): "  <@1445225572140712006> ❌ You've already claimed this reward!
+👥 **140** players have already claimed this reward."
+[INFO] [Cratot] ℹ️ Already claimed this nuke
+[INFO] [Cloverisking] ✓ selected "Server 1"
+[INFO] [Cloverisking] selectMenu raw resp: " ☢️ NUCLEAR FALLOUT! ☢️ Claim the nuke
+
+☢️ **Dropped by:** <@224769722552418304>
+💰 **Nuke Reward:** 150,000 clover points
+⏰ **Expires:** <t:1783817199:R> "
+[INFO] [Altspam6] ✓ claimed! (amount unknown — no parseable reply)
+[INFO] [Spamalt4] components: type=STRING_SELECT customId=fallout_server_1525217421374521406 label=- disabled=false
+[INFO] [Justin19] components: type=STRING_SELECT customId=fallout_server_1525217421374521406 label=- disabled=false
+[INFO] [Alt8] select menu options: Server 3(3), Server 2(2), Server 1(1)
+[INFO] [11] ✓ claimed! (amount unknown — no parseable reply)
+[INFO] [Alt10] ✓ claimed! (amount unknown — no parseable reply)
+[INFO] [Cdj] raw reply (MESSAGE_CREATE): "  <@958953650775003136> ❌ You've already claimed this reward!
+👥 **140** players have already claimed this reward."
+[INFO] [Cdj] ℹ️ Already claimed this nuke
+[INFO] [Cratot] components: type=STRING_SELECT customId=fallout_server_1525217421374521406 label=- disabled=false
+[INFO] [Altspam6] components: type=STRING_SELECT customId=fallout_server_1525217421374521406 label=- disabled=false
+[INFO] [PLAY5] ✓ claimed! (amount unknown — no parseable reply)
+[INFO] [Spamalt4] select menu options: Server 3(3), Server 2(2), Server 1(1)
+[INFO] [Alt9] ✓ claimed! (amount unknown — no parseable reply)
+[INFO] [12] ✓ claimed! (amount unknown — no parseable reply)
+[INFO] [test100] select menu options: Server 3(3), Server 2(2), Server 1(1)
+[INFO] [Justin19] select menu options: Server 3(3), Server 2(2), Server 1(1)
+[INFO] [11] components: type=STRING_SELECT customId=fallout_server_1525217421374521406 label=- disabled=false
+[INFO] [AltSpam] ✓ claimed! (amount unknown — no parseable reply)
+[INFO] [Alt10] components: type=STRING_SELECT customId=fallout_server_1525217421374521406 label=- disabled=false
+[INFO] [Cdj] components: type=STRING_SELECT customId=fallout_server_1525217421374521406 label=- disabled=false
+[INFO] [Cloverisking] raw reply (MESSAGE_CREATE): "  <@1445224726594195476> ❌ You've already claimed this reward!
+👥 **140** players have already claimed this reward."
+[INFO] [Cloverisking] ℹ️ Already claimed this nuke
+[INFO] [Altspam2] ✓ claimed! (amount unknown — no parseable reply)
+[INFO] [PLAY5] components: type=STRING_SELECT customId=fallout_server_1525217421374521406 label=- disabled=false
+[INFO] [Altspam6] select menu options: Server 3(3), Server 2(2), Server 1(1)
+[INFO] [Alt9] components: type=STRING_SELECT customId=fallout_server_1525217421374521406 label=- disabled=false
+[INFO] [SPAMALT3] ✓ claimed! (amount unknown — no parseable reply)
+[INFO] [12] components: type=STRING_SELECT customId=fallout_server_1525217421374521406 label=- disabled=false
+[INFO] [Spalt7] ✓ claimed! (amount unknown — no parseable reply)
+[INFO] [Cratot] select menu options: Server 3(3), Server 2(2), Server 1(1)
+[INFO] [AltSpam] components: type=STRING_SELECT customId=fallout_server_1525217421374521406 label=- disabled=false
+[INFO] [Alt8] raw reply (MESSAGE_CREATE): "  <@1519129405908058206> ❌ You've already claimed this reward!
+👥 **211** players have already claimed this reward."
+[INFO] [Cloverisking] components: type=STRING_SELECT customId=fallout_server_1525217421374521406 label=- disabled=false
+[INFO] [Alt10] select menu options: Server 3(3), Server 2(2), Server 1(1)
+[INFO] [11] select menu options: Server 3(3), Server 2(2), Server 1(1)
+[INFO] [Altspam2] components: type=STRING_SELECT customId=fallout_server_1525217421374521406 label=- disabled=false
+[INFO] [Cdj] select menu options: Server 3(3), Server 2(2), Server 1(1)
+[INFO] [PLAY5] select menu options: Server 3(3), Server 2(2), Server 1(1)
+[INFO] [SPAMALT3] components: type=STRING_SELECT customId=fallout_server_1525217421374521406 label=- disabled=false
+[INFO] [Alt9] select menu options: Server 3(3), Server 2(2), Server 1(1)
+[INFO] [Spalt7] components: type=STRING_SELECT customId=fallout_server_1525217421374521406 label=- disabled=false
+[INFO] [Spamalt4] raw reply (MESSAGE_CREATE): "  <@1519104659464257587> ❌ You've already claimed this reward!
+👥 **211** players have already claimed this reward."
+{"level":30,"time":1783742841752,"pid":1,"hostname":"3589b4ae","req":{"id":1,"method":"HEAD","url":"/health"},"res":{"statusCode":200},"responseTime":6,"msg":"request completed"}
+[INFO] [Alt8] ✓ selected "Server 1"
+[INFO] [Alt8] selectMenu raw resp: " ☢️ NUCLEAR FALLOUT! ☢️ Claim the nuke
+
+☢️ **Dropped by:** <@826409542547275777>
+💰 **Nuke Reward:** 50,000 clover points
+⏰ **Expires:** <t:1783796967:R> "
+[INFO] [Alt8] ℹ️ Already claimed this nuke
+[INFO] [Cloverisking] select menu options: Server 3(3), Server 2(2), Server 1(1)
+[INFO] [AltSpam] select menu options: Server 3(3), Server 2(2), Server 1(1)
+[INFO] [12] select menu options: Server 3(3), Server 2(2), Server 1(1)
+{"level":30,"time":1783742842252,"pid":1,"hostname":"3589b4ae","req":{"id":2,"method":"HEAD","url":"/health"},"res":{"statusCode":200},"responseTime":1,"msg":"request completed"}
+[INFO] [test100] raw reply (MESSAGE_CREATE): "  <@1411860644734439455> ❌ You've already claimed this reward!
+👥 **211** players have already claimed this reward."
+[INFO] [Spamalt4] ✓ selected "Server 1"
+[INFO] [Spamalt4] selectMenu raw resp: " ☢️ NUCLEAR FALLOUT! ☢️ Claim the nuke
+
+☢️ **Dropped by:** <@826409542547275777>
+💰 **Nuke Reward:** 50,000 clover points
+⏰ **Expires:** <t:1783796967:R> "
+[INFO] [Spamalt4] ℹ️ Already claimed this nuke
+[INFO] [Alt8] Old nuke scan done — claimed: 0, already claimed: 2, total found: 2
+[INFO] [test100] ✓ selected "Server 1"
+[INFO] [test100] selectMenu raw resp: " ☢️ NUCLEAR FALLOUT! ☢️ Claim the nuke
+
+☢️ **Dropped by:** <@826409542547275777>
+💰 **Nuke Reward:** 50,000 clover points
+⏰ **Expires:** <t:1783796967:R> "
+[INFO] [test100] ℹ️ Already claimed this nuke
+[INFO] [Altspam2] select menu options: Server 3(3), Server 2(2), Server 1(1)
+[WARN] [Justin19] selectMenu error (interaction was sent): No responsed from Application
+[INFO] [Altspam6] raw reply (MESSAGE_CREATE): "  <@1519127055151665297> ❌ You've already claimed this reward!
+👥 **211** players have already claimed this reward."
+[INFO] [Spalt7] select menu options: Server 3(3), Server 2(2), Server 1(1)
+[INFO] [SPAMALT3] select menu options: Server 3(3), Server 2(2), Server 1(1)
+[INFO] [Altspam6] ✓ selected "Server 1"
+[INFO] [Altspam6] selectMenu raw resp: " ☢️ NUCLEAR FALLOUT! ☢️ Claim the nuke
+
+☢️ **Dropped by:** <@826409542547275777>
+💰 **Nuke Reward:** 50,000 clover points
+⏰ **Expires:** <t:1783796967:R> "
+[INFO] [Altspam6] ℹ️ Already claimed this nuke
+[INFO] [Spamalt4] Old nuke scan done — claimed: 0, already claimed: 2, total found: 2
+[INFO] [test100] Old nuke scan done — claimed: 0, already claimed: 2, total found: 2
+[INFO] [Cratot] ✓ selected "Server 1"
+[INFO] [Cratot] selectMenu raw resp: " ☢️ NUCLEAR FALLOUT! ☢️ Claim the nuke
+
+☢️ **Dropped by:** <@826409542547275777>
+💰 **Nuke Reward:** 50,000 clover points
+⏰ **Expires:** <t:1783796967:R> "
+[INFO] [Cratot] raw reply (MESSAGE_CREATE): "  <@1445225572140712006> ❌ You've already claimed this reward!
+👥 **211** players have already claimed this reward."
+[INFO] [Cratot] ℹ️ Already claimed this nuke
+[INFO] [Alt10] ✓ selected "Server 1"
+[INFO] [Alt10] selectMenu raw resp: " ☢️ NUCLEAR FALLOUT! ☢️ Claim the nuke
+
+☢️ **Dropped by:** <@826409542547275777>
+💰 **Nuke Reward:** 50,000 clover points
+⏰ **Expires:** <t:1783796967:R> "
+[WARN] [11] selectMenu error (interaction was sent): No responsed from Application
+[INFO] [Altspam6] Old nuke scan done — claimed: 1, already claimed: 1, total found: 2
+[INFO] [Cdj] ✓ selected "Server 1"
+[INFO] [Cdj] selectMenu raw resp: " ☢️ NUCLEAR FALLOUT! ☢️ Claim the nuke
+
+☢️ **Dropped by:** <@826409542547275777>
+💰 **Nuke Reward:** 50,000 clover points
+⏰ **Expires:** <t:1783796967:R> "
+[INFO] [PLAY5] ✓ selected "Server 1"
+[INFO] [PLAY5] selectMenu raw resp: " ☢️ NUCLEAR FALLOUT! ☢️ Claim the nuke
+
+☢️ **Dropped by:** <@826409542547275777>
+💰 **Nuke Reward:** 50,000 clover points
+⏰ **Expires:** <t:1783796967:R> "
+[WARN] [Alt9] selectMenu error (interaction was sent): No responsed from Application
+[INFO] [Alt10] raw reply (MESSAGE_CREATE): "  <@1519188444897607721> ❌ You've already claimed this reward!
+👥 **211** players have already claimed this reward."
+[INFO] [Alt10] ℹ️ Already claimed this nuke
+[INFO] [Cratot] Old nuke scan done — claimed: 0, already claimed: 2, total found: 2
+[INFO] [Cloverisking] ✓ selected "Server 1"
+[INFO] [Cloverisking] selectMenu raw resp: " ☢️ NUCLEAR FALLOUT! ☢️ Claim the nuke
+
+☢️ **Dropped by:** <@826409542547275777>
+💰 **Nuke Reward:** 50,000 clover points
+⏰ **Expires:** <t:1783796967:R> "
+[INFO] [AltSpam] ✓ selected "Server 1"
+[INFO] [AltSpam] selectMenu raw resp: " ☢️ NUCLEAR FALLOUT! ☢️ Claim the nuke
+
+☢️ **Dropped by:** <@826409542547275777>
+💰 **Nuke Reward:** 50,000 clover points
+⏰ **Expires:** <t:1783796967:R> "
+[WARN] [12] selectMenu error (interaction was sent): No responsed from Application
+[INFO] [Cdj] raw reply (MESSAGE_CREATE): "  <@958953650775003136> ❌ You've already claimed this reward!
+👥 **211** players have already claimed this reward."
+[INFO] [Cdj] ℹ️ Already claimed this nuke
+[INFO] [Alt10] Old nuke scan done — claimed: 1, already claimed: 1, total found: 2
+[INFO] [Justin19] ✓ claimed! (amount unknown — no parseable reply)
+[WARN] [Altspam2] selectMenu error (interaction was sent): No responsed from Application
+[INFO] [PLAY5] raw reply (MESSAGE_CREATE): "  <@838072187214495794> ❌ You've already claimed this reward!
+👥 **211** players have already claimed this reward."
+[INFO] [PLAY5] ℹ️ Already claimed this nuke
+[INFO] [Spalt7] ✓ selected "Server 1"
+[INFO] [Spalt7] selectMenu raw resp: " ☢️ NUCLEAR FALLOUT! ☢️ Claim the nuke
+
+☢️ **Dropped by:** <@826409542547275777>
+💰 **Nuke Reward:** 50,000 clover points
+⏰ **Expires:** <t:1783796967:R> "
+[INFO] [SPAMALT3] ✓ selected "Server 1"
+[INFO] [SPAMALT3] selectMenu raw resp: " ☢️ NUCLEAR FALLOUT! ☢️ Claim the nuke
+
+☢️ **Dropped by:** <@826409542547275777>
+💰 **Nuke Reward:** 50,000 clover points
+⏰ **Expires:** <t:1783796967:R> "
+[INFO] [Cdj] Old nuke scan done — claimed: 0, already claimed: 2, total found: 2
+[INFO] [Justin19] Old nuke scan done — claimed: 1, already claimed: 1, total found: 2
+[INFO] [11] ✓ claimed! (amount unknown — no parseable reply)
+[INFO] [Cloverisking] raw reply (MESSAGE_CREATE): "  <@1445224726594195476> ❌ You've already claimed this reward!
+👥 **211** players have already claimed this reward."
+[INFO] [Cloverisking] ℹ️ Already claimed this nuke
+[INFO] [PLAY5] Old nuke scan done — claimed: 1, already claimed: 1, total found: 2
+[INFO] [Alt9] ✓ claimed! (amount unknown — no parseable reply)
+[INFO] [12] ✓ claimed! (amount unknown — no parseable reply)
+[INFO] [AltSpam] raw reply (MESSAGE_CREATE): "  <@1519096172495503390> ❌ You've already claimed this reward!
+👥 **211** players have already claimed this reward."
+[INFO] [AltSpam] ℹ️ Already claimed this nuke
+[INFO] [11] Old nuke scan done — claimed: 2, already claimed: 0, total found: 2
+[INFO] [Cloverisking] Old nuke scan done — claimed: 0, already claimed: 2, total found: 2
+[INFO] [Altspam2] ✓ claimed! (amount unknown — no parseable reply)
+[INFO] [Alt9] Old nuke scan done — claimed: 2, already claimed: 0, total found: 2
+[INFO] [SPAMALT3] ✓ claimed! (amount unknown — no parseable reply)
+[INFO] [12] Old nuke scan done — claimed: 2, already claimed: 0, total found: 2
+[INFO] [Spalt7] ✓ claimed! (amount unknown — no parseable reply)
+[INFO] [AltSpam] Old nuke scan done — claimed: 1, already claimed: 1, total found: 2
+[INFO] [Altspam2] Old nuke scan done — claimed: 2, already claimed: 0, total found: 2
+[INFO] [SPAMALT3] Old nuke scan done — claimed: 2, already claimed: 0, total found: 2
+[INFO] [Spalt7] Old nuke scan done — claimed: 2, already claimed: 0, total found: 2
+{"level":30,"time":1783742858529,"pid":1,"hostname":"3589b4ae","req":{"id":3,"method":"GET","url":"/api/bot/status"},"res":{"statusCode":200},"responseTime":3,"msg":"request completed"}
+{"level":30,"time":1783742858546,"pid":1,"hostname":"3589b4ae","req":{"id":6,"method":"GET","url":"/api/logs"},"res":{"statusCode":200},"responseTime":2,"msg":"request completed"}
+{"level":30,"time":1783742858583,"pid":1,"hostname":"3589b4ae","req":{"id":5,"method":"GET","url":"/api/bot/settings"},"res":{"statusCode":304},"responseTime":43,"msg":"request completed"}
+{"level":30,"time":1783742858585,"pid":1,"hostname":"3589b4ae","req":{"id":4,"method":"GET","url":"/api/accounts"},"res":{"statusCode":200},"responseTime":54,"msg":"request completed"}
+{"level":30,"time":1783742860155,"pid":1,"hostname":"3589b4ae","req":{"id":7,"method":"GET","url":"/api/bot/status"},"res":{"statusCode":200},"responseTime":1,"msg":"request completed"}
+{"level":30,"time":1783742860660,"pid":1,"hostname":"3589b4ae","req":{"id":8,"method":"GET","url":"/"},"res":{"statusCode":200},"responseTime":5,"msg":"request completed"}
+{"level":30,"time":1783742860724,"pid":1,"hostname":"3589b4ae","req":{"id":9,"method":"GET","url":"/api/logs"},"res":{"statusCode":304},"responseTime":2,"msg":"request completed"}
+{"level":30,"time":1783742860887,"pid":1,"hostname":"3589b4ae","req":{"id":10,"method":"GET","url":"/assets/index-D9k7nfcw.js"},"res":{"statusCode":200},"responseTime":4,"msg":"request completed"}
+{"level":30,"time":1783742860888,"pid":1,"hostname":"3589b4ae","req":{"id":11,"method":"GET","url":"/assets/index-BFgtxfQL.css"},"res":{"statusCode":200},"responseTime":2,"msg":"request completed"}
+{"level":30,"time":1783742861352,"pid":1,"hostname":"3589b4ae","req":{"id":12,"method":"GET","url":"/api/accounts"},"res":{"statusCode":304},"responseTime":6,"msg":"request completed"}
+{"level":30,"time":1783742861354,"pid":1,"hostname":"3589b4ae","req":{"id":13,"method":"GET","url":"/api/bot/status"},"res":{"statusCode":200},"responseTime":2,"msg":"request completed"}
+{"level":30,"time":1783742861357,"pid":1,"hostname":"3589b4ae","req":{"id":15,"method":"GET","url":"/api/logs"},"res":{"statusCode":200},"responseTime":1,"msg":"request completed"}
+{"level":30,"time":1783742861359,"pid":1,"hostname":"3589b4ae","req":{"id":14,"method":"GET","url":"/api/bot/settings"},"res":{"statusCode":304},"responseTime":4,"msg":"request completed"}
+{"level":30,"time":1783742861767,"pid":1,"hostname":"3589b4ae","req":{"id":16,"method":"GET","url":"/favicon.svg"},"res":{"statusCode":200},"responseTime":2,"msg":"request completed"}
+{"level":30,"time":1783742863035,"pid":1,"hostname":"3589b4ae","req":{"id":17,"method":"GET","url":"/api/bot/status"},"res":{"statusCode":200},"responseTime":1,"msg":"request completed"}
+{"level":30,"time":1783742863557,"pid":1,"hostname":"3589b4ae","req":{"id":18,"method":"GET","url":"/api/logs"},"res":{"statusCode":304},"responseTime":1,"msg":"request completed"}
+{"level":30,"time":1783742864671,"pid":1,"hostname":"3589b4ae","req":{"id":19,"method":"GET","url":"/api/bot/status"},"res":{"statusCode":200},"responseTime":1,"msg":"request completed"}
+{"level":30,"time":1783742865522,"pid":1,"hostname":"3589b4ae","req":{"id":20,"method":"GET","url":"/api/accounts"},"res":{"statusCode":304},"responseTime":7,"msg":"request completed"}
+{"level":30,"time":1783742865713,"pid":1,"hostname":"3589b4ae","req":{"id":21,"method":"GET","url":"/api/logs"},"res":{"statusCode":304},"responseTime":1,"msg":"request completed"}
+{"level":30,"time":1783742866571,"pid":1,"hostname":"3589b4ae","req":{"id":22,"method":"GET","url":"/api/bot/status"},"res":{"statusCode":200},"responseTime":1,"msg":"request completed"}
+{"level":30,"time":1783742867853,"pid":1,"hostname":"3589b4ae","req":{"id":23,"method":"GET","url":"/api/logs"},"res":{"statusCode":304},"responseTime":1,"msg":"request completed"}
+{"level":30,"time":1783742868206,"pid":1,"hostname":"3589b4ae","req":{"id":24,"method":"GET","url":"/api/bot/status"},"res":{"statusCode":200},"responseTime":1,"msg":"request completed"}
+{"level":30,"time":1783742869671,"pid":1,"hostname":"3589b4ae","req":{"id":25,"method":"GET","url":"/api/accounts"},"res":{"statusCode":304},"responseTime":5,"msg":"request completed"}
+{"level":30,"time":1783742869851,"pid":1,"hostname":"3589b4ae","req":{"id":26,"method":"GET","url":"/api/bot/status"},"res":{"statusCode":200},"responseTime":1,"msg":"request completed"}
+{"level":30,"time":1783742869993,"pid":1,"hostname":"3589b4ae","req":{"id":27,"method":"GET","url":"/api/logs"},"res":{"statusCode":304},"responseTime":1,"msg":"request completed"}
+{"level":30,"time":1783742871510,"pid":1,"hostname":"3589b4ae","req":{"id":28,"method":"GET","url":"/api/bot/status"},"res":{"statusCode":200},"responseTime":0,"msg":"request completed"}
+{"level":30,"time":1783742872132,"pid":1,"hostname":"3589b4ae","req":{"id":29,"method":"GET","url":"/api/logs"},"res":{"statusCode":304},"responseTime":1,"msg":"request completed"}
+{"level":30,"time":1783742873153,"pid":1,"hostname":"3589b4ae","req":{"id":30,"method":"GET","url":"/api/bot/status"},"res":{"statusCode":200},"responseTime":1,"msg":"request completed"}
+{"level":30,"time":1783742873815,"pid":1,"hostname":"3589b4ae","req":{"id":31,"method":"GET","url":"/api/accounts"},"res":{"statusCode":304},"responseTime":5,"msg":"request completed"}
+{"level":30,"time":1783742874284,"pid":1,"hostname":"3589b4ae","req":{"id":32,"method":"GET","url":"/api/logs"},"res":{"statusCode":304},"responseTime":1,"msg":"request completed"}
+{"level":30,"time":1783742874788,"pid":1,"hostname":"3589b4ae","req":{"id":33,"method":"GET","url":"/api/bot/status"},"res":{"statusCode":200},"responseTime":2,"msg":"request completed"}
+{"level":30,"time":1783742876436,"pid":1,"hostname":"3589b4ae","req":{"id":34,"method":"GET","url":"/api/bot/status"},"res":{"statusCode":200},"responseTime":1,"msg":"request completed"}
+{"level":30,"time":1783742876438,"pid":1,"hostname":"3589b4ae","req":{"id":35,"method":"GET","url":"/api/logs"},"res":{"statusCode":304},"responseTime":1,"msg":"request completed"}
+{"level":30,"time":1783742877976,"pid":1,"hostname":"3589b4ae","req":{"id":36,"method":"GET","url":"/api/accounts"},"res":{"statusCode":304},"responseTime":13,"msg":"request completed"}
+{"level":30,"time":1783742878086,"pid":1,"hostname":"3589b4ae","req":{"id":37,"method":"GET","url":"/api/bot/status"},"res":{"statusCode":200},"responseTime":0,"msg":"request completed"}
+{"level":30,"time":1783742878572,"pid":1,"hostname":"3589b4ae","req":{"id":38,"method":"GET","url":"/api/logs"},"res":{"statusCode":304},"responseTime":1,"msg":"request completed"}
+{"level":30,"time":1783742879731,"pid":1,"hostname":"3589b4ae","req":{"id":39,"method":"GET","url":"/api/bot/status"},"res":{"statusCode":200},"responseTime":0,"msg":"request completed"}
+{"level":30,"time":1783742880714,"pid":1,"hostname":"3589b4ae","req":{"id":40,"method":"GET","url":"/api/logs"},"res":{"statusCode":304},"responseTime":1,"msg":"request completed"}
+{"level":30,"time":1783742881366,"pid":1,"hostname":"3589b4ae","req":{"id":41,"method":"GET","url":"/api/bot/status"},"res":{"statusCode":200},"responseTime":1,"msg":"request completed"}
+{"level":30,"time":1783742882115,"pid":1,"hostname":"3589b4ae","req":{"id":42,"method":"GET","url":"/api/accounts"},"res":{"statusCode":304},"responseTime":10,"msg":"request completed"}
+{"level":30,"time":1783742882862,"pid":1,"hostname":"3589b4ae","req":{"id":43,"method":"GET","url":"/api/logs"},"res":{"statusCode":304},"responseTime":1,"msg":"request completed"}
+{"level":30,"time":1783742883010,"pid":1,"hostname":"3589b4ae","req":{"id":44,"method":"GET","url":"/api/bot/status"},"res":{"statusCode":200},"responseTime":1,"msg":"request completed"}
+{"level":30,"time":1783742884668,"pid":1,"hostname":"3589b4ae","req":{"id":45,"method":"GET","url":"/api/bot/status"},"res":{"statusCode":200},"responseTime":1,"msg":"request completed"}
+{"level":30,"time":1783742885010,"pid":1,"hostname":"3589b4ae","req":{"id":46,"method":"GET","url":"/api/logs"},"res":{"statusCode":304},"responseTime":1,"msg":"request completed"}
+{"level":30,"time":1783742886264,"pid":1,"hostname":"3589b4ae","req":{"id":47,"method":"GET","url":"/api/accounts"},"res":{"statusCode":304},"responseTime":5,"msg":"request completed"}
+{"level":30,"time":1783742886334,"pid":1,"hostname":"3589b4ae","req":{"id":48,"method":"GET","url":"/api/bot/status"},"res":{"statusCode":200},"responseTime":1,"msg":"request completed"}
+{"level":30,"time":1783742887152,"pid":1,"hostname":"3589b4ae","req":{"id":49,"method":"GET","url":"/api/logs"},"res":{"statusCode":304},"responseTime":1,"msg":"request completed"}
+{"level":30,"time":1783742887996,"pid":1,"hostname":"3589b4ae","req":{"id":50,"method":"GET","url":"/api/bot/status"},"res":{"statusCode":200},"responseTime":1,"msg":"request completed"}
+{"level":30,"time":1783742889300,"pid":1,"hostname":"3589b4ae","req":{"id":51,"method":"GET","url":"/api/logs"},"res":{"statusCode":304},"responseTime":1,"msg":"request completed"}
+{"level":30,"time":1783742889653,"pid":1,"hostname":"3589b4ae","req":{"id":52,"method":"GET","url":"/api/bot/status"},"res":{"statusCode":200},"responseTime":1,"msg":"request completed"}
+{"level":30,"time":1783742890420,"pid":1,"hostname":"3589b4ae","req":{"id":53,"method":"GET","url":"/api/accounts"},"res":{"statusCode":304},"responseTime":6,"msg":"request completed"}
+{"level":30,"time":1783742891322,"pid":1,"hostname":"3589b4ae","req":{"id":54,"method":"GET","url":"/api/bot/status"},"res":{"statusCode":200},"responseTime":1,"msg":"request completed"}
+{"level":30,"time":1783742891451,"pid":1,"hostname":"3589b4ae","req":{"id":55,"method":"GET","url":"/api/logs"},"res":{"statusCode":304},"responseTime":1,"msg":"request completed"}
+{"level":30,"time":1783742892961,"pid":1,"hostname":"3589b4ae","req":{"id":56,"method":"GET","url":"/api/bot/status"},"res":{"statusCode":200},"responseTime":1,"msg":"request completed"}
+{"level":30,"time":1783742893592,"pid":1,"hostname":"3589b4ae","req":{"id":57,"method":"GET","url":"/api/logs"},"res":{"statusCode":304},"responseTime":1,"msg":"request completed"}
+{"level":30,"time":1783742894600,"pid":1,"hostname":"3589b4ae","req":{"id":58,"method":"GET","url":"/api/accounts"},"res":{"statusCode":304},"responseTime":7,"msg":"request completed"}
+{"level":30,"time":1783742894603,"pid":1,"hostname":"3589b4ae","req":{"id":59,"method":"GET","url":"/api/bot/status"},"res":{"statusCode":200},"responseTime":0,"msg":"request completed"}
+{"level":30,"time":1783742895729,"pid":1,"hostname":"3589b4ae","req":{"id":60,"method":"GET","url":"/api/logs"},"res":{"statusCode":304},"responseTime":1,"msg":"request completed"}
+{"level":30,"time":1783742896251,"pid":1,"hostname":"3589b4ae","req":{"id":61,"method":"GET","url":"/api/bot/status"},"res":{"statusCode":200},"responseTime":1,"msg":"request completed"}
+{"level":30,"time":1783742897979,"pid":1,"hostname":"3589b4ae","req":{"id":62,"method":"GET","url":"/api/logs"},"res":{"statusCode":304},"responseTime":1,"msg":"request completed"}
+{"level":30,"time":1783742898049,"pid":1,"hostname":"3589b4ae","req":{"id":63,"method":"GET","url":"/api/bot/status"},"res":{"statusCode":200},"responseTime":1,"msg":"request completed"}
+{"level":30,"time":1783742898741,"pid":1,"hostname":"3589b4ae","req":{"id":64,"method":"GET","url":"/api/accounts"},"res":{"statusCode":304},"responseTime":5,"msg":"request completed"}
+{"level":30,"time":1783742899700,"pid":1,"hostname":"3589b4ae","req":{"id":65,"method":"GET","url":"/api/bot/status"},"res":{"statusCode":200},"responseTime":1,"msg":"request completed"}
+{"level":30,"time":1783742900137,"pid":1,"hostname":"3589b4ae","req":{"id":66,"method":"GET","url":"/api/logs"},"res":{"statusCode":304},"responseTime":1,"msg":"request completed"}
+{"level":30,"time":1783742901354,"pid":1,"hostname":"3589b4ae","req":{"id":67,"method":"GET","url":"/api/bot/status"},"res":{"statusCode":200},"responseTime":1,"msg":"request completed"}
+{"level":30,"time":1783742902286,"pid":1,"hostname":"3589b4ae","req":{"id":68,"method":"GET","url":"/api/logs"},"res":{"statusCode":304},"responseTime":1,"msg":"request completed"}
+{"level":30,"time":1783742902895,"pid":1,"hostname":"3589b4ae","req":{"id":69,"method":"GET","url":"/api/accounts"},"res":{"statusCode":304},"responseTime":10,"msg":"request completed"}
+{"level":30,"time":1783742903017,"pid":1,"hostname":"3589b4ae","req":{"id":70,"method":"GET","url":"/api/bot/status"},"res":{"statusCode":200},"responseTime":0,"msg":"request completed"}
+{"level":30,"time":1783742904530,"pid":1,"hostname":"3589b4ae","req":{"id":71,"method":"GET","url":"/api/logs"},"res":{"statusCode":304},"responseTime":1,"msg":"request completed"}
+{"level":30,"time":1783742904670,"pid":1,"hostname":"3589b4ae","req":{"id":72,"method":"GET","url":"/api/bot/status"},"res":{"statusCode":200},"responseTime":0,"msg":"request completed"}
+{"level":30,"time":1783742906311,"pid":1,"hostname":"3589b4ae","req":{"id":73,"method":"GET","url":"/api/bot/status"},"res":{"statusCode":200},"responseTime":0,"msg":"request completed"}
+{"level":30,"time":1783742906688,"pid":1,"hostname":"3589b4ae","req":{"id":74,"method":"GET","url":"/api/logs"},"res":{"statusCode":304},"responseTime":1,"msg":"request completed"}
+{"level":30,"time":1783742907056,"pid":1,"hostname":"3589b4ae","req":{"id":75,"method":"GET","url":"/api/accounts"},"res":{"statusCode":304},"responseTime":5,"msg":"request completed"}
+{"level":30,"time":1783742907976,"pid":1,"hostname":"3589b4ae","req":{"id":76,"method":"GET","url":"/api/bot/status"},"res":{"statusCode":200},"responseTime":1,"msg":"request completed"}
+{"level":30,"time":1783742908829,"pid":1,"hostname":"3589b4ae","req":{"id":77,"method":"GET","url":"/api/logs"},"res":{"statusCode":304},"responseTime":1,"msg":"request completed"}
+{"level":30,"time":1783742909631,"pid":1,"hostname":"3589b4ae","req":{"id":78,"method":"GET","url":"/api/bot/status"},"res":{"statusCode":200},"responseTime":0,"msg":"request completed"}
+{"level":30,"time":1783742910975,"pid":1,"hostname":"3589b4ae","req":{"id":79,"method":"GET","url":"/api/logs"},"res":{"statusCode":304},"responseTime":1,"msg":"request completed"}
+{"level":30,"time":1783742911212,"pid":1,"hostname":"3589b4ae","req":{"id":80,"method":"GET","url":"/api/accounts"},"res":{"statusCode":304},"responseTime":5,"msg":"request completed"}
+{"level":30,"time":1783742911291,"pid":1,"hostname":"3589b4ae","req":{"id":81,"method":"GET","url":"/api/bot/status"},"res":{"statusCode":200},"responseTime":1,"msg":"request completed"}
+{"level":30,"time":1783742912931,"pid":1,"hostname":"3589b4ae","req":{"id":82,"method":"GET","url":"/api/bot/status"},"res":{"statusCode":200},"responseTime":1,"msg":"request completed"}
+{"level":30,"time":1783742913132,"pid":1,"hostname":"3589b4ae","req":{"id":83,"method":"GET","url":"/api/logs"},"res":{"statusCode":304},"responseTime":1,"msg":"request completed"}
+{"level":30,"time":1783742914579,"pid":1,"hostname":"3589b4ae","req":{"id":84,"method":"GET","url":"/api/bot/status"},"res":{"statusCode":200},"responseTime":1,"msg":"request completed"}
+[INFO] 💸 Transferring from 1 account(s) to creator5677...
+[INFO] [test100] Sending transfer 4,637,381 → @creator5677
+{"level":30,"time":1783742915430,"pid":1,"hostname":"3589b4ae","req":{"id":86,"method":"GET","url":"/api/logs"},"res":{"statusCode":200},"responseTime":1,"msg":"request completed"}
+{"level":30,"time":1783742915438,"pid":1,"hostname":"3589b4ae","req":{"id":87,"method":"GET","url":"/api/accounts"},"res":{"statusCode":304},"responseTime":7,"msg":"request completed"}
+[INFO] 💸 Transfer complete. Total sent: 0 scrap to creator5677
+{"level":30,"time":1783742915884,"pid":1,"hostname":"3589b4ae","req":{"id":85,"method":"POST","url":"/api/transfer"},"res":{"statusCode":200},"responseTime":633,"msg":"request completed"}
+[ERR] [test100] transfer error: Invalid Form Body
+data.options[0].value: Could not interpret "1" as string.
+{"level":30,"time":1783742916208,"pid":1,"hostname":"3589b4ae","req":{"id":88,"method":"GET","url":"/api/bot/status"},"res":{"statusCode":200},"responseTime":0,"msg":"request completed"}
+{"level":30,"time":1783742917594,"pid":1,"hostname":"3589b4ae","req":{"id":89,"method":"GET","url":"/api/logs"},"res":{"statusCode":200},"responseTime":2,"msg":"request completed"}
+{"level":30,"time":1783742917840,"pid":1,"hostname":"3589b4ae","req":{"id":90,"method":"GET","url":"/api/bot/status"},"res":{"statusCode":200},"responseTime":0,"msg":"request completed"}
+{"level":30,"time":1783742919491,"pid":1,"hostname":"3589b4ae","req":{"id":91,"method":"GET","url":"/api/bot/status"},"res":{"statusCode":200},"responseTime":1,"msg":"request completed"}
+{"level":30,"time":1783742919569,"pid":1,"hostname":"3589b4ae","req":{"id":92,"method":"GET","url":"/api/accounts"},"res":{"statusCode":304},"responseTime":5,"msg":"request completed"}
+{"level":30,"time":1783742919753,"pid":1,"hostname":"3589b4ae","req":{"id":93,"method":"GET","url":"/api/logs"},"res":{"statusCode":304},"responseTime":1,"msg":"request completed"}
+{"level":30,"time":1783742919848,"pid":1,"hostname":"3589b4ae","req":{"id":94,"method":"HEAD","url":"/"},"res":{"statusCode":200},"responseTime":1,"msg":"request completed"}
+{"level":30,"time":1783742921278,"pid":1,"hostname":"3589b4ae","req":{"id":95,"method":"GET","url":"/api/bot/status"},"res":{"statusCode":200},"responseTime":1,"msg":"request completed"}
+{"level":30,"time":1783742921920,"pid":1,"hostname":"3589b4ae","req":{"id":96,"method":"GET","url":"/api/logs"},"res":{"statusCode":304},"responseTime":1,"msg":"request completed"}
+{"level":30,"time":1783742923010,"pid":1,"hostname":"3589b4ae","req":{"id":97,"method":"GET","url":"/api/bot/status"},"res":{"statusCode":200},"responseTime":1,"msg":"request completed"}
