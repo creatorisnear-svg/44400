@@ -31,9 +31,24 @@ RUN pnpm --filter @workspace/api-server run build
 # ── Production image ──────────────────────────────────────────────────────────
 FROM node:22-slim
 
+ENV PNPM_HOME="/pnpm"
+ENV PATH="$PNPM_HOME:$PATH"
+RUN corepack enable && corepack prepare pnpm@10.26.1 --activate
+
 WORKDIR /app
 
-# Only the compiled output — no node_modules needed (fully bundled by esbuild)
+# Install only production dependencies (for external runtime packages like discord.js-selfbot-v13)
+COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
+COPY lib/db/package.json                lib/db/
+COPY lib/api-spec/package.json          lib/api-spec/
+COPY lib/api-client-react/package.json  lib/api-client-react/
+COPY lib/api-zod/package.json           lib/api-zod/
+COPY artifacts/api-server/package.json  artifacts/api-server/
+COPY artifacts/blackjack-bot/package.json artifacts/blackjack-bot/
+
+RUN pnpm install --frozen-lockfile --prod
+
+# Copy compiled output from builder
 COPY --from=builder /app/artifacts/api-server/dist        ./artifacts/api-server/dist
 COPY --from=builder /app/artifacts/blackjack-bot/dist/public ./artifacts/blackjack-bot/dist/public
 
