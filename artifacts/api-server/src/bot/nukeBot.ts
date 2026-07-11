@@ -1492,7 +1492,7 @@ class NukeBot {
         try {
           await (channel as any).sendSlash(
             settings.cloverId, slashName,
-            toUsername, amount, Number(server),
+            toUsername, amount, String(server),
           );
         } catch (slashErr) {
           const slashErrMsg = (slashErr as Error).message ?? '';
