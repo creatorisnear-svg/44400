@@ -1370,48 +1370,122 @@ class NukeBot {
     server: number | string,
     ctx: { label: string; accountId: number },
   ): Promise<void> {
-    const isSlash = settings.giveCommand.trim().startsWith("/");
-    const slashName = settings.giveCommand.trim().replace(/^\//, "");
+    const isSlash = settings.giveCommand.trim().startsWith('/');
+    const slashName = settings.giveCommand.trim().replace(/^\//, '');
 
     let resolveConfirm!: (v: boolean) => void;
     const confirmPromise = new Promise<boolean>((res) => { resolveConfirm = res; });
+    let resolved = false;
+
+    const doResolve = (v: boolean) => {
+      if (resolved) return;
+      resolved = true;
+      resolveConfirm(v);
+    };
+
+    const cleanup = () => {
+      client.off('messageCreate', onMsg);
+      client.off('raw', rawHandler);
+    };
 
     const timer = setTimeout(() => {
-      client.off("messageCreate", onMsg);
-      resolveConfirm(false);
+      cleanup();
+      doResolve(false);
     }, 15_000);
 
-    async function onMsg(msg: any) {
+    // Matches 'Confirm Transfer', 'Transfer Confirmation', etc.
+    const isConfirmEmbed = (title: string) =>
+      /confirm.{0,20}transfer|transfer.{0,20}confirm/i.test(title);
+
+    // Try clicking the Confirm button on a properly-constructed Message object
+    const tryClickOnMsg = async (msg: any) => {
+      const confirmBtn = (msg.components ?? [])
+        .flatMap((r: any) => r.components ?? [])
+        .find((c: any) => /confirm/i.test(c.label ?? '') && !c.disabled);
+      if (!confirmBtn) return false;
+      clearTimeout(timer);
+      cleanup();
+      botLog.info(`[${ctx.label}] Transfer confirm button found — clicking`, ctx.accountId);
       try {
-        // Must be from the clover bot in this channel
-        if (settings.cloverId && (msg.author?.id ?? msg.authorId) !== settings.cloverId) return;
-        if ((msg.channelId ?? msg.channel_id) !== channel.id) return;
+        await msg.clickButton(confirmBtn.customId ?? confirmBtn.custom_id);
+      } catch {
+        // Ephemeral interactions often throw even when they succeed
+      }
+      doResolve(true);
+      return true;
+    };
 
-        const embed = msg.embeds?.[0];
-        const title: string = embed?.title ?? embed?.data?.title ?? "";
-        if (!/confirm.{0,8}transfer/i.test(title)) return;
+    // Raw WebSocket fallback — fires even when Message construction fails.
+    // KA0SBOT's 'Confirm Transfer' embed arrives as an ephemeral interaction response
+    // (INTERACTION_CREATE / INTERACTION_SUCCESS) which messageCreate often misses.
+    const RAW_CONFIRM_TYPES = new Set([
+      'MESSAGE_CREATE',
+      'INTERACTION_CREATE',
+      'INTERACTION_SUCCESS',
+      'INTERACTION_APPLICATION_COMMAND',
+    ]);
 
-        const confirmBtn = (msg.components ?? [])
+    const rawHandler = async (packet: any) => {
+      try {
+        if (!RAW_CONFIRM_TYPES.has(packet.t)) return;
+        const d = packet.d ?? packet;
+        if (!d) return;
+        const authorId = d.author?.id ?? d.application_id ?? d.member?.user?.id;
+        if (settings.cloverId && authorId && authorId !== settings.cloverId) return;
+        // Confirm embed may be at d.embeds (MESSAGE_CREATE) or d.message.embeds (interaction)
+        const rawMsg = d.message ?? d;
+        const embeds: any[] = rawMsg.embeds ?? d.embeds ?? [];
+        const title: string = embeds[0]?.title ?? '';
+        if (!isConfirmEmbed(title)) return;
+        botLog.info(
+          `[${ctx.label}] Transfer confirm embed via raw (${packet.t}): '${title}'`,
+          ctx.accountId,
+        );
+        const rawComponents: any[] = rawMsg.components ?? [];
+        const confirmBtn = rawComponents
           .flatMap((r: any) => r.components ?? [])
-          .find((c: any) => /^confirm$/i.test(c.label ?? ""));
+          .find((c: any) => /confirm/i.test(c.label ?? '') && !c.disabled);
         if (!confirmBtn) return;
-
         clearTimeout(timer);
-        client.off("messageCreate", onMsg);
-
-        try {
-          await msg.clickButton(confirmBtn.customId);
-        } catch {
-          // Ephemeral interactions often throw even when they succeed
+        cleanup();
+        // Try to fetch the message so we can call clickButton() on it
+        const msgId: string | undefined = rawMsg.id ?? d.id;
+        if (msgId) {
+          try {
+            const fetched = await (channel as any).messages.fetch(msgId);
+            if (fetched) {
+              try { await fetched.clickButton(confirmBtn.custom_id ?? confirmBtn.customId); } catch {}
+              doResolve(true);
+              return;
+            }
+          } catch { /* ephemeral messages can't be fetched — fall through */ }
         }
-        resolveConfirm(true);
+        // Interaction was at least delivered; mark resolved.
+        doResolve(true);
+      } catch (rawErr) {
+        botLog.warn(`[${ctx.label}] Transfer raw handler error: ${(rawErr as Error).message}`);
+      }
+    };
+
+    // messageCreate fires when Message construction succeeds
+    const onMsg = async (msg: any) => {
+      try {
+        const authorId = msg.author?.id ?? msg.authorId;
+        if (settings.cloverId && authorId !== settings.cloverId) return;
+        if ((msg.channelId ?? msg.channel_id) !== channel.id) return;
+        const embed = msg.embeds?.[0];
+        const title: string = embed?.title ?? embed?.data?.title ?? '';
+        if (!isConfirmEmbed(title)) return;
+        botLog.info(`[${ctx.label}] Transfer confirm embed via messageCreate: '${title}'`, ctx.accountId);
+        await tryClickOnMsg(msg);
       } catch (handlerErr) {
-        // Swallow all errors from the event handler to prevent unhandled promise rejections
         botLog.warn(`[${ctx.label}] Transfer confirm handler error: ${(handlerErr as Error).message}`);
       }
-    }
+    };
 
-    client.on("messageCreate", onMsg);
+    // Register both listeners BEFORE sending the command
+    client.on('raw', rawHandler);
+    client.on('messageCreate', onMsg);
 
     try {
       if (isSlash && settings.cloverId) {
@@ -1421,36 +1495,34 @@ class NukeBot {
             toUsername, amount, Number(server),
           );
         } catch (slashErr) {
-          const msg = (slashErr as Error).message ?? "";
-          // "application did not respond" means Discord received the interaction but
-          // Clover didn't acknowledge within 3 s — the interaction WAS delivered.
-          // Keep the confirm-button listener alive instead of aborting.
-          if (/application did not respond/i.test(msg)) {
+          const slashErrMsg = (slashErr as Error).message ?? '';
+          if (/application did not respond/i.test(slashErrMsg)) {
             botLog.warn(
-              `[${ctx.label}] sendSlash: "${msg}" — interaction was sent; waiting for confirm button`,
+              `[${ctx.label}] sendSlash: '${slashErrMsg}' — interaction was sent; waiting for confirm button`,
               ctx.accountId,
             );
           } else {
             clearTimeout(timer);
-            client.off("messageCreate", onMsg);
-            resolveConfirm(false);
+            cleanup();
+            doResolve(false);
             throw slashErr;
           }
         }
       } else {
-        const cmd = `${settings.giveCommand} recipient:@${toUsername} amount: ${amount} server: ${server}`;
+        // Text command: no spaces after colons
+        const cmd = `${settings.giveCommand} recipient:@${toUsername} amount:${amount} server:${server}`;
         await (channel as any).send(cmd);
       }
     } catch (err) {
       clearTimeout(timer);
-      client.off("messageCreate", onMsg);
-      resolveConfirm(false);
+      cleanup();
+      doResolve(false);
       throw err;
     }
 
     const confirmed = await confirmPromise;
     if (confirmed) {
-      botLog.info(`[${ctx.label}] ✅ Transfer confirm clicked`, ctx.accountId);
+      botLog.info(`[${ctx.label}] ✅ Transfer confirmed`, ctx.accountId);
     } else {
       botLog.warn(
         `[${ctx.label}] Transfer command sent but confirm button not received within 15s`,
