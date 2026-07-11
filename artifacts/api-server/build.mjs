@@ -100,6 +100,16 @@ async function buildAll() {
       "puppeteer",
       "puppeteer-core",
       "electron",
+      // discord.js-selfbot-v13 optional audio/native deps
+      "ffmpeg-static",
+      "prism-media",
+      "@discordjs/opus",
+      "@discordjs/voice",
+      "opusscript",
+      "sodium-native",
+      "libsodium-wrappers",
+      "node-opus",
+      "tweetnacl",
     ],
     sourcemap: "linked",
     plugins: [

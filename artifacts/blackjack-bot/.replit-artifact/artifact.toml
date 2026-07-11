@@ -1,0 +1,27 @@
+kind = "web"
+previewPath = "/"
+title = "AVIV — Nuke Bot Dashboard"
+version = "1.0.0"
+id = "artifacts/blackjack-bot"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 23176
+
+[services.development]
+run = "pnpm --filter @workspace/blackjack-bot run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/blackjack-bot", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/blackjack-bot/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "23176"
+BASE_PATH = "/"

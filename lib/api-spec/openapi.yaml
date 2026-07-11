@@ -1,29 +1,279 @@
 openapi: 3.1.0
 info:
-  # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: Clover Nuke Bot API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
-    description: Health operations
+  - name: accounts
+  - name: bot
+  - name: events
+  - name: transfers
+
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
-          description: Healthy
+          description: OK
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /accounts:
+    get:
+      operationId: getAccounts
+      tags: [accounts]
+      summary: List all accounts
+      responses:
+        "200":
+          description: List of accounts
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  accounts:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/AccountWithStatus"
+                required: [accounts]
+    post:
+      operationId: createAccount
+      tags: [accounts]
+      summary: Add an account
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AccountInput"
+      responses:
+        "200":
+          description: Created account
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Account"
+
+  /accounts/{id}:
+    put:
+      operationId: updateAccount
+      tags: [accounts]
+      summary: Update an account
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AccountInput"
+      responses:
+        "200":
+          description: Updated account
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Account"
+    delete:
+      operationId: deleteAccount
+      tags: [accounts]
+      summary: Remove an account
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+
+  /bot/settings:
+    get:
+      operationId: getBotSettings
+      tags: [bot]
+      summary: Get bot settings
+      responses:
+        "200":
+          description: Bot settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BotSettings"
+    put:
+      operationId: updateBotSettings
+      tags: [bot]
+      summary: Update bot settings
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BotSettingsInput"
+      responses:
+        "200":
+          description: Updated settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BotSettings"
+
+  /bot/status:
+    get:
+      operationId: getBotStatus
+      tags: [bot]
+      summary: Get status of all account connections
+      responses:
+        "200":
+          description: All account statuses
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BotStatus"
+
+  /bot/start:
+    post:
+      operationId: startBot
+      tags: [bot]
+      summary: Connect all enabled accounts
+      responses:
+        "200":
+          description: Started
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BotStatus"
+        "400":
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /bot/stop:
+    post:
+      operationId: stopBot
+      tags: [bot]
+      summary: Disconnect all accounts
+      responses:
+        "200":
+          description: Stopped
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BotStatus"
+
+  /transfer:
+    post:
+      operationId: transfer
+      tags: [transfers]
+      summary: Send scrap from all accounts to a player
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TransferRequest"
+      responses:
+        "200":
+          description: Transfer results
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TransferResult"
+
+  /transfers:
+    get:
+      operationId: getTransfers
+      tags: [transfers]
+      summary: List transfer history
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+      responses:
+        "200":
+          description: Transfer log
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  transfers:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/TransferLog"
+                required: [transfers]
+
+  /events:
+    get:
+      operationId: getEvents
+      tags: [events]
+      summary: Get nuke event history
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+      responses:
+        "200":
+          description: Nuke events
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  events:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/NukeEventWithClaims"
+                required: [events]
+
+  /logs:
+    get:
+      operationId: getLogs
+      tags: [bot]
+      summary: Get recent log entries
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 100
+      responses:
+        "200":
+          description: Logs
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  logs:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/LogEntry"
+                required: [logs]
+
 components:
   schemas:
     HealthStatus:
@@ -31,6 +281,292 @@ components:
       properties:
         status:
           type: string
-      required:
-        - status
+      required: [status]
 
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+      required: [error]
+
+    SuccessResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+      required: [ok]
+
+    Account:
+      type: object
+      properties:
+        id:
+          type: integer
+        label:
+          type: string
+        token:
+          type: string
+        username:
+          type: string
+          nullable: true
+        discriminator:
+          type: string
+          nullable: true
+        avatarUrl:
+          type: string
+          nullable: true
+        balance:
+          type: integer
+        totalClaimed:
+          type: integer
+        totalTransferred:
+          type: integer
+        enabled:
+          type: boolean
+      required: [id, label, token, balance, totalClaimed, totalTransferred, enabled]
+
+    AccountWithStatus:
+      allOf:
+        - $ref: "#/components/schemas/Account"
+        - type: object
+          properties:
+            connected:
+              type: boolean
+            connectionStatus:
+              type: string
+              enum: [connected, connecting, disconnected, error]
+          required: [connected, connectionStatus]
+
+    AccountInput:
+      type: object
+      properties:
+        label:
+          type: string
+        token:
+          type: string
+        enabled:
+          type: boolean
+      required: [label, token]
+
+    BotSettings:
+      type: object
+      properties:
+        id:
+          type: integer
+        serverId:
+          type: string
+        channelId:
+          type: string
+        cloverId:
+          type: string
+        cloverPrefix:
+          type: string
+        nukeKeywords:
+          type: string
+        giveCommand:
+          type: string
+        claimDelayMin:
+          type: integer
+        claimDelayMax:
+          type: integer
+        enabled:
+          type: boolean
+      required:
+        - id
+        - serverId
+        - channelId
+        - cloverId
+        - cloverPrefix
+        - nukeKeywords
+        - giveCommand
+        - claimDelayMin
+        - claimDelayMax
+        - enabled
+
+    BotSettingsInput:
+      type: object
+      properties:
+        serverId:
+          type: string
+        channelId:
+          type: string
+        cloverId:
+          type: string
+        cloverPrefix:
+          type: string
+        nukeKeywords:
+          type: string
+        giveCommand:
+          type: string
+        claimDelayMin:
+          type: integer
+        claimDelayMax:
+          type: integer
+      required:
+        - serverId
+        - channelId
+        - cloverId
+        - cloverPrefix
+        - nukeKeywords
+        - giveCommand
+        - claimDelayMin
+        - claimDelayMax
+
+    AccountStatus:
+      type: object
+      properties:
+        accountId:
+          type: integer
+        label:
+          type: string
+        username:
+          type: string
+          nullable: true
+        connected:
+          type: boolean
+        status:
+          type: string
+          enum: [connected, connecting, disconnected, error]
+        balance:
+          type: integer
+        claimsThisSession:
+          type: integer
+        scrapThisSession:
+          type: integer
+      required:
+        - accountId
+        - label
+        - connected
+        - status
+        - balance
+        - claimsThisSession
+        - scrapThisSession
+
+    BotStatus:
+      type: object
+      properties:
+        running:
+          type: boolean
+        accounts:
+          type: array
+          items:
+            $ref: "#/components/schemas/AccountStatus"
+        totalClaimsToday:
+          type: integer
+        totalScrapToday:
+          type: integer
+        uptime:
+          type: integer
+      required: [running, accounts, totalClaimsToday, totalScrapToday, uptime]
+
+    TransferRequest:
+      type: object
+      properties:
+        toUsername:
+          type: string
+        amount:
+          type: integer
+          nullable: true
+        accountIds:
+          type: array
+          items:
+            type: integer
+          nullable: true
+      required: [toUsername]
+
+    TransferResult:
+      type: object
+      properties:
+        results:
+          type: array
+          items:
+            type: object
+            properties:
+              accountId:
+                type: integer
+              label:
+                type: string
+              amount:
+                type: integer
+              success:
+                type: boolean
+              error:
+                type: string
+                nullable: true
+            required: [accountId, label, amount, success]
+        totalTransferred:
+          type: integer
+      required: [results, totalTransferred]
+
+    TransferLog:
+      type: object
+      properties:
+        id:
+          type: integer
+        fromAccountId:
+          type: integer
+        fromLabel:
+          type: string
+          nullable: true
+        toUsername:
+          type: string
+        amount:
+          type: integer
+        success:
+          type: boolean
+        error:
+          type: string
+          nullable: true
+        sentAt:
+          type: string
+      required: [id, fromAccountId, toUsername, amount, success, sentAt]
+
+    NukeEventWithClaims:
+      type: object
+      properties:
+        id:
+          type: integer
+        messageId:
+          type: string
+        channelId:
+          type: string
+        detectedAt:
+          type: string
+        totalScrapClaimed:
+          type: integer
+        claimCount:
+          type: integer
+        claims:
+          type: array
+          items:
+            type: object
+            properties:
+              accountId:
+                type: integer
+              label:
+                type: string
+                nullable: true
+              success:
+                type: boolean
+              scrapGained:
+                type: integer
+              error:
+                type: string
+                nullable: true
+            required: [accountId, success, scrapGained]
+      required: [id, messageId, channelId, detectedAt, totalScrapClaimed, claimCount, claims]
+
+    LogEntry:
+      type: object
+      properties:
+        timestamp:
+          type: string
+        level:
+          type: string
+          enum: [info, warn, error, debug]
+        message:
+          type: string
+        accountId:
+          type: integer
+          nullable: true
+      required: [timestamp, level, message]

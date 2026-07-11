@@ -1,45 +1,55 @@
-# [Project name]
+# AVIV — Nuke Bot Dashboard
 
-_Replace the heading above with the project's name, and this line with one sentence describing what this app does for users._
+Multi-account Discord self-bot that auto-detects and claims "Nuclear Fallout" events from KA0SBOT/Clover, then transfers collected points to a master account. Includes a full-stack web dashboard to manage accounts, configure the bot, and view history.
 
-## Run & Operate
+## Architecture
 
-- `pnpm --filter @workspace/api-server run dev` — run the API server (port 5000)
-- `pnpm run typecheck` — full typecheck across all packages
-- `pnpm run build` — typecheck + build all packages
-- `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from the OpenAPI spec
-- `pnpm --filter @workspace/db run push` — push DB schema changes (dev only)
-- Required env: `DATABASE_URL` — Postgres connection string
+| Layer | Technology |
+|---|---|
+| Backend / Bot | Node.js · Express · `discord.js-selfbot-v13` |
+| Database | PostgreSQL · Drizzle ORM |
+| Frontend | React · Vite · Tailwind CSS v4 · shadcn/ui |
+| API spec | OpenAPI 3.1 · Orval codegen |
 
-## Stack
+## Monorepo layout
 
-- pnpm workspaces, Node.js 24, TypeScript 5.9
-- API: Express 5
-- DB: PostgreSQL + Drizzle ORM
-- Validation: Zod (`zod/v4`), `drizzle-zod`
-- API codegen: Orval (from OpenAPI spec)
-- Build: esbuild (CJS bundle)
+```
+artifacts/
+  api-server/       # Express API + NukeBot engine
+  blackjack-bot/    # React dashboard (serves at /)
+lib/
+  db/               # Drizzle schema + client (@workspace/db)
+  api-spec/         # openapi.yaml + generated client (@workspace/api-client-react)
+```
 
-## Where things live
+## Environment variables / secrets
 
-_Populate as you build — short repo map plus pointers to the source-of-truth file for DB schema, API contracts, theme files, etc._
+| Key | Description |
+|---|---|
+| `DATABASE_URL` | Runtime-managed by Replit — do not set manually |
+| `DASHBOARD_PASSWORD` | Secret — password to log in to the web dashboard |
+| `SESSION_SECRET` | Secret — used for session signing |
 
-## Architecture decisions
+## Running locally
 
-_Populate as you build — non-obvious choices a reader couldn't infer from the code (3-5 bullets)._
+Both workflows start automatically in Replit:
 
-## Product
+- **API Server** — `pnpm --filter @workspace/api-server run dev`
+- **Dashboard (web)** — `pnpm --filter @workspace/blackjack-bot run dev`
 
-_Describe the high-level user-facing capabilities of this app once they exist._
+## Database
+
+Push schema changes:
+```
+pnpm --filter @workspace/db run push
+```
+
+Regenerate API client after editing `lib/api-spec/openapi.yaml`:
+```
+pnpm --filter @workspace/api-spec run codegen
+```
 
 ## User preferences
 
-_Populate as you build — explicit user instructions worth remembering across sessions._
-
-## Gotchas
-
-_Populate as you build — sharp edges, "always run X before Y" rules._
-
-## Pointers
-
-- See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and package details
+- Dark theme throughout — background `#09090b`, yellow/amber accent
+- Keep bot logic and frontend in their respective artifact directories
