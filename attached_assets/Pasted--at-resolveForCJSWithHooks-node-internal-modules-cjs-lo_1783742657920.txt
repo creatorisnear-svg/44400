@@ -1,0 +1,100 @@
+    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1045:22)
+    at Function._load (node:internal/modules/cjs/loader:1216:25)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:254:19)
+    at Module.require (node:internal/modules/cjs/loader:1527:12)
+    at require (node:internal/modules/helpers:147:16)
+    at ../../node_modules/.pnpm/discord.js-selfbot-v13@3.7.1/node_modules/discord.js-selfbot-v13/src/client/voice/player/MediaPlayer.js (/app/node_modules/.pnpm/discord.js-selfbot-v13@3.7.1/node_modules/discord.js-selfbot-v13/src/client/voice/player/MediaPlayer.js:22:15)
+    at __require2 (file:///app/artifacts/api-server/dist/index.mjs:22:50)
+    at ../../node_modules/.pnpm/discord.js-selfbot-v13@3.7.1/node_modules/discord.js-selfbot-v13/src/client/voice/VoiceConnection.js (/app/node_modules/.pnpm/discord.js-selfbot-v13@3.7.1/node_modules/discord.js-selfbot-v13/src/client/voice/VoiceConnection.js:9:21) {
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [ '/app/artifacts/api-server/dist/index.mjs' ]
+}
+
+Node.js v22.23.1
+Instance stopped.
+Instance created. Preparing to start...
+Application exited with code 1. This usually indicates an application failure. Check that the command used to launch your application is correct.
+node:internal/modules/cjs/loader:1430
+  const err = new Error(message);
+              ^
+
+Error: Cannot find module 'prism-media'
+Require stack:
+- /app/artifacts/api-server/dist/index.mjs
+    at Function._resolveFilename (node:internal/modules/cjs/loader:1430:15)
+    at defaultResolveImpl (node:internal/modules/cjs/loader:1040:19)
+    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1045:22)
+    at Function._load (node:internal/modules/cjs/loader:1216:25)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:254:19)
+    at Module.require (node:internal/modules/cjs/loader:1527:12)
+    at require (node:internal/modules/helpers:147:16)
+    at ../../node_modules/.pnpm/discord.js-selfbot-v13@3.7.1/node_modules/discord.js-selfbot-v13/src/client/voice/player/MediaPlayer.js (/app/node_modules/.pnpm/discord.js-selfbot-v13@3.7.1/node_modules/discord.js-selfbot-v13/src/client/voice/player/MediaPlayer.js:22:15)
+    at __require2 (file:///app/artifacts/api-server/dist/index.mjs:22:50)
+    at ../../node_modules/.pnpm/discord.js-selfbot-v13@3.7.1/node_modules/discord.js-selfbot-v13/src/client/voice/VoiceConnection.js (/app/node_modules/.pnpm/discord.js-selfbot-v13@3.7.1/node_modules/discord.js-selfbot-v13/src/client/voice/VoiceConnection.js:9:21) {
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [ '/app/artifacts/api-server/dist/index.mjs' ]
+}
+
+Node.js v22.23.1
+node:internal/modules/cjs/loader:1430
+  const err = new Error(message);
+              ^
+
+Error: Cannot find module 'prism-media'
+Require stack:
+- /app/artifacts/api-server/dist/index.mjs
+    at Function._resolveFilename (node:internal/modules/cjs/loader:1430:15)
+    at defaultResolveImpl (node:internal/modules/cjs/loader:1040:19)
+    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1045:22)
+    at Function._load (node:internal/modules/cjs/loader:1216:25)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:254:19)
+    at Module.require (node:internal/modules/cjs/loader:1527:12)
+    at require (node:internal/modules/helpers:147:16)
+    at ../../node_modules/.pnpm/discord.js-selfbot-v13@3.7.1/node_modules/discord.js-selfbot-v13/src/client/voice/player/MediaPlayer.js (/app/node_modules/.pnpm/discord.js-selfbot-v13@3.7.1/node_modules/discord.js-selfbot-v13/src/client/voice/player/MediaPlayer.js:22:15)
+    at __require2 (file:///app/artifacts/api-server/dist/index.mjs:22:50)
+    at ../../node_modules/.pnpm/discord.js-selfbot-v13@3.7.1/node_modules/discord.js-selfbot-v13/src/client/voice/VoiceConnection.js (/app/node_modules/.pnpm/discord.js-selfbot-v13@3.7.1/node_modules/discord.js-selfbot-v13/src/client/voice/VoiceConnection.js:9:21) {
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [ '/app/artifacts/api-server/dist/index.mjs' ]
+}
+
+Node.js v22.23.1
+Application exited with code 1. This usually indicates an application failure. Check that the command used to launch your application is correct.
+Instance stopped.
+{"level":30,"time":1783739794016,"pid":1,"hostname":"6129bbb2","req":{"id":2372,"method":"HEAD","url":"/health"},"res":{"statusCode":200},"responseTime":0,"msg":"request completed"}
+{"level":30,"time":1783739794715,"pid":1,"hostname":"6129bbb2","req":{"id":2373,"method":"HEAD","url":"/health"},"res":{"statusCode":200},"responseTime":1,"msg":"request completed"}
+{"level":30,"time":1783739871203,"pid":1,"hostname":"6129bbb2","req":{"id":2374,"method":"HEAD","url":"/"},"res":{"statusCode":200},"responseTime":1,"msg":"request completed"}
+{"level":30,"time":1783739928952,"pid":1,"hostname":"6129bbb2","req":{"id":2375,"method":"HEAD","url":"/api/healthz"},"res":{"statusCode":200},"responseTime":1,"msg":"request completed"}
+{"level":30,"time":1783740098525,"pid":1,"hostname":"6129bbb2","req":{"id":2376,"method":"HEAD","url":"/health"},"res":{"statusCode":200},"responseTime":2,"msg":"request completed"}
+{"level":30,"time":1783740098760,"pid":1,"hostname":"6129bbb2","req":{"id":2377,"method":"HEAD","url":"/health"},"res":{"statusCode":200},"responseTime":1,"msg":"request completed"}
+{"level":30,"time":1783740175986,"pid":1,"hostname":"6129bbb2","req":{"id":2378,"method":"HEAD","url":"/"},"res":{"statusCode":200},"responseTime":1,"msg":"request completed"}
+{"level":30,"time":1783740235266,"pid":1,"hostname":"6129bbb2","req":{"id":2379,"method":"HEAD","url":"/api/healthz"},"res":{"statusCode":200},"responseTime":0,"msg":"request completed"}
+{"level":30,"time":1783740403145,"pid":1,"hostname":"6129bbb2","req":{"id":2380,"method":"HEAD","url":"/health"},"res":{"statusCode":200},"responseTime":1,"msg":"request completed"}
+{"level":30,"time":1783740404435,"pid":1,"hostname":"6129bbb2","req":{"id":2381,"method":"HEAD","url":"/health"},"res":{"statusCode":200},"responseTime":1,"msg":"request completed"}
+{"level":30,"time":1783740481231,"pid":1,"hostname":"6129bbb2","req":{"id":2382,"method":"HEAD","url":"/"},"res":{"statusCode":200},"responseTime":1,"msg":"request completed"}
+{"level":30,"time":1783740539297,"pid":1,"hostname":"6129bbb2","req":{"id":2383,"method":"HEAD","url":"/api/healthz"},"res":{"statusCode":200},"responseTime":1,"msg":"request completed"}
+{"level":30,"time":1783740708132,"pid":1,"hostname":"6129bbb2","req":{"id":2384,"method":"HEAD","url":"/health"},"res":{"statusCode":200},"responseTime":1,"msg":"request completed"}
+{"level":30,"time":1783740708745,"pid":1,"hostname":"6129bbb2","req":{"id":2385,"method":"HEAD","url":"/health"},"res":{"statusCode":200},"responseTime":0,"msg":"request completed"}
+{"level":30,"time":1783740787266,"pid":1,"hostname":"6129bbb2","req":{"id":2386,"method":"HEAD","url":"/"},"res":{"statusCode":200},"responseTime":1,"msg":"request completed"}
+{"level":30,"time":1783740843906,"pid":1,"hostname":"6129bbb2","req":{"id":2387,"method":"HEAD","url":"/api/healthz"},"res":{"statusCode":200},"responseTime":1,"msg":"request completed"}
+{"level":30,"time":1783741013031,"pid":1,"hostname":"6129bbb2","req":{"id":2388,"method":"HEAD","url":"/health"},"res":{"statusCode":200},"responseTime":0,"msg":"request completed"}
+{"level":30,"time":1783741013480,"pid":1,"hostname":"6129bbb2","req":{"id":2389,"method":"HEAD","url":"/health"},"res":{"statusCode":200},"responseTime":1,"msg":"request completed"}
+{"level":30,"time":1783741091357,"pid":1,"hostname":"6129bbb2","req":{"id":2390,"method":"HEAD","url":"/"},"res":{"statusCode":200},"responseTime":1,"msg":"request completed"}
+{"level":30,"time":1783741147398,"pid":1,"hostname":"6129bbb2","req":{"id":2391,"method":"HEAD","url":"/api/healthz"},"res":{"statusCode":200},"responseTime":1,"msg":"request completed"}
+{"level":30,"time":1783741317962,"pid":1,"hostname":"6129bbb2","req":{"id":2392,"method":"HEAD","url":"/health"},"res":{"statusCode":200},"responseTime":1,"msg":"request completed"}
+{"level":30,"time":1783741318769,"pid":1,"hostname":"6129bbb2","req":{"id":2393,"method":"HEAD","url":"/health"},"res":{"statusCode":200},"responseTime":0,"msg":"request completed"}
+{"level":30,"time":1783741395442,"pid":1,"hostname":"6129bbb2","req":{"id":2394,"method":"HEAD","url":"/"},"res":{"statusCode":200},"responseTime":1,"msg":"request completed"}
+{"level":30,"time":1783741452039,"pid":1,"hostname":"6129bbb2","req":{"id":2395,"method":"HEAD","url":"/api/healthz"},"res":{"statusCode":200},"responseTime":1,"msg":"request completed"}
+{"level":30,"time":1783741623282,"pid":1,"hostname":"6129bbb2","req":{"id":2396,"method":"HEAD","url":"/health"},"res":{"statusCode":200},"responseTime":1,"msg":"request completed"}
+{"level":30,"time":1783741624493,"pid":1,"hostname":"6129bbb2","req":{"id":2397,"method":"HEAD","url":"/health"},"res":{"statusCode":200},"responseTime":1,"msg":"request completed"}
+{"level":30,"time":1783741701198,"pid":1,"hostname":"6129bbb2","req":{"id":2398,"method":"HEAD","url":"/"},"res":{"statusCode":200},"responseTime":0,"msg":"request completed"}
+{"level":30,"time":1783741756836,"pid":1,"hostname":"6129bbb2","req":{"id":2399,"method":"HEAD","url":"/api/healthz"},"res":{"statusCode":200},"responseTime":1,"msg":"request completed"}
+{"level":30,"time":1783741927940,"pid":1,"hostname":"6129bbb2","req":{"id":2400,"method":"HEAD","url":"/health"},"res":{"statusCode":200},"responseTime":0,"msg":"request completed"}
+{"level":30,"time":1783741928566,"pid":1,"hostname":"6129bbb2","req":{"id":2401,"method":"HEAD","url":"/health"},"res":{"statusCode":200},"responseTime":1,"msg":"request completed"}
+{"level":30,"time":1783742006933,"pid":1,"hostname":"6129bbb2","req":{"id":2402,"method":"HEAD","url":"/"},"res":{"statusCode":200},"responseTime":1,"msg":"request completed"}
+{"level":30,"time":1783742061575,"pid":1,"hostname":"6129bbb2","req":{"id":2403,"method":"HEAD","url":"/api/healthz"},"res":{"statusCode":200},"responseTime":1,"msg":"request completed"}
+{"level":30,"time":1783742232733,"pid":1,"hostname":"6129bbb2","req":{"id":2404,"method":"HEAD","url":"/health"},"res":{"statusCode":200},"responseTime":1,"msg":"request completed"}
+{"level":30,"time":1783742232846,"pid":1,"hostname":"6129bbb2","req":{"id":2405,"method":"HEAD","url":"/health"},"res":{"statusCode":200},"responseTime":1,"msg":"request completed"}
+{"level":30,"time":1783742311237,"pid":1,"hostname":"6129bbb2","req":{"id":2406,"method":"HEAD","url":"/"},"res":{"statusCode":200},"responseTime":1,"msg":"request completed"}
+{"level":30,"time":1783742366057,"pid":1,"hostname":"6129bbb2","req":{"id":2407,"method":"HEAD","url":"/api/healthz"},"res":{"statusCode":200},"responseTime":0,"msg":"request completed"}
+{"level":30,"time":1783742537133,"pid":1,"hostname":"6129bbb2","req":{"id":2408,"method":"HEAD","url":"/health"},"res":{"statusCode":200},"responseTime":3,"msg":"request completed"}
+{"level":30,"time":1783742537714,"pid":1,"hostname":"6129bbb2","req":{"id":2409,"method":"HEAD","url":"/health"},"res":{"statusCode":200},"responseTime":1,"msg":"request completed"}
