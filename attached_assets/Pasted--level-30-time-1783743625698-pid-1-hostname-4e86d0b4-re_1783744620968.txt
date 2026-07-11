@@ -1,0 +1,13 @@
+{"level":30,"time":1783743625698,"pid":1,"hostname":"4e86d0b4","req":{"id":51,"method":"GET","url":"/api/bot/status"},"res":{"statusCode":200},"responseTime":1,"msg":"request completed"}
+[INFO] 💸 Transferring from 1 account(s) to creator5677...
+[INFO] [Spamalt4] Sending transfer 4,000,000 → @creator5677
+{"level":30,"time":1783743626519,"pid":1,"hostname":"4e86d0b4","req":{"id":53,"method":"GET","url":"/api/accounts"},"res":{"statusCode":304},"responseTime":11,"msg":"request completed"}
+{"level":40,"time":1783743626862,"pid":1,"hostname":"4e86d0b4","reason":{"name":"DiscordAPIError","message":"Invalid Form Body\ndata.options[0].value: Value \"creator5677\" is not snowflake.","method":"post","path":"/interactions","code":50035,"httpStatus":400,"requestData":{"json":{"type":2,"application_id":"1285369751853469817","guild_id":"1377391587125887076","channel_id":"1512310633524105316","session_id":"e952b7c2bf7d853fafbb95b2ece20ff0","data":{"version":"1511869526004990076","id":"1289952932782932038","name":"transfer","type":1,"options":[{"type":6,"name":"recipient","value":"creator5677"},{"type":4,"name":"amount","value":4000000},{"type":3,"name":"server","value":"1"}],"attachments":[]},"nonce":"1525356069612814371"},"files":[]},"retries":0,"captcha":null},"msg":"Unhandled promise rejection (caught at process level — server stays up)"}
+{"level":30,"time":1783743627351,"pid":1,"hostname":"4e86d0b4","req":{"id":54,"method":"GET","url":"/api/bot/status"},"res":{"statusCode":200},"responseTime":1,"msg":"request completed"}
+{"level":30,"time":1783743627590,"pid":1,"hostname":"4e86d0b4","req":{"id":55,"method":"GET","url":"/api/logs"},"res":{"statusCode":200},"responseTime":1,"msg":"request completed"}
+{"level":30,"time":1783743628993,"pid":1,"hostname":"4e86d0b4","req":{"id":56,"method":"GET","url":"/api/bot/status"},"res":{"statusCode":200},"responseTime":0,"msg":"request completed"}
+{"level":30,"time":1783743629758,"pid":1,"hostname":"4e86d0b4","req":{"id":57,"method":"GET","url":"/api/logs"},"res":{"statusCode":304},"responseTime":0,"msg":"request completed"}
+{"level":30,"time":1783743630645,"pid":1,"hostname":"4e86d0b4","req":{"id":58,"method":"GET","url":"/api/bot/status"},"res":{"statusCode":200},"responseTime":1,"msg":"request completed"}
+{"level":30,"time":1783743630681,"pid":1,"hostname":"4e86d0b4","req":{"id":59,"method":"GET","url":"/api/accounts"},"res":{"statusCode":304},"responseTime":5,"msg":"request completed"}
+[INFO] 💸 Transfer complete. Total sent: 0 scrap to creator5677
+{"level":30,"time":1783743631749,"pid":1,"hostname":"4e86d0b4","req":{"id":52,"method":"POST","url":"/api/transfer"},"res":{"statusCode":200},"responseTime":5673,"msg":"request completed"}

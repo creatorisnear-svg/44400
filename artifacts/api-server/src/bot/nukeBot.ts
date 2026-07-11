@@ -1378,27 +1378,36 @@ class NukeBot {
 
     let matches: any[] = [];
     try {
-      const fetched = await guild.members.fetch({ query: cleaned, limit: 5 });
+      // Search is prefix/fuzzy, so over-fetch and filter down to exact matches
+      // ourselves — never trust the top fuzzy result as "the" recipient.
+      const fetched = await guild.members.fetch({ query: cleaned, limit: 20 });
       matches = [...fetched.values()];
     } catch {
       matches = [];
     }
 
     const lower = cleaned.toLowerCase();
-    const exact = matches.find(
+    const exactMatches = matches.filter(
       (m: any) =>
         m.user?.username?.toLowerCase() === lower ||
         m.user?.globalName?.toLowerCase() === lower ||
         m.nickname?.toLowerCase() === lower,
     );
-    const resolvedId = (exact ?? matches[0])?.user?.id ?? (exact ?? matches[0])?.id;
 
-    if (!resolvedId) {
+    // Dedupe by user id — the same member can match on more than one field.
+    const uniqueIds = [...new Set(exactMatches.map((m: any) => m.user?.id ?? m.id))];
+
+    if (uniqueIds.length === 0) {
       throw new Error(
-        `Could not resolve recipient "${rawRecipient}" to a Discord user ID in this server. Enter their numeric user ID instead, or double-check the username.`,
+        `Could not resolve recipient "${rawRecipient}" to a Discord user ID in this server. Enter their numeric user ID instead, or double-check the exact username.`,
       );
     }
-    return resolvedId;
+    if (uniqueIds.length > 1) {
+      throw new Error(
+        `Recipient "${rawRecipient}" matches ${uniqueIds.length} different members in this server — enter their numeric user ID instead to avoid sending to the wrong person.`,
+      );
+    }
+    return uniqueIds[0];
   }
 
   /**
