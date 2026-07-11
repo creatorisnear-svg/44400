@@ -1,0 +1,100 @@
+#5 sha256:68629629b516c3cd6f5e71ffbe18e32afb1ae5b4926c92d058c0f11ef1fd58a3 5.24MB / 28.24MB 0.3s
+#5 sha256:3de69d675a4de6c71e2311f1e547de804e6e68f051a0b9e17e6283d500894468 26.21MB / 49.94MB 0.6s
+#5 sha256:68629629b516c3cd6f5e71ffbe18e32afb1ae5b4926c92d058c0f11ef1fd58a3 17.83MB / 28.24MB 0.5s
+#5 sha256:68629629b516c3cd6f5e71ffbe18e32afb1ae5b4926c92d058c0f11ef1fd58a3 28.24MB / 28.24MB 0.7s done
+#5 sha256:3de69d675a4de6c71e2311f1e547de804e6e68f051a0b9e17e6283d500894468 36.70MB / 49.94MB 0.8s
+#5 extracting sha256:68629629b516c3cd6f5e71ffbe18e32afb1ae5b4926c92d058c0f11ef1fd58a3
+#5 sha256:3de69d675a4de6c71e2311f1e547de804e6e68f051a0b9e17e6283d500894468 47.19MB / 49.94MB 0.9s
+#5 sha256:3de69d675a4de6c71e2311f1e547de804e6e68f051a0b9e17e6283d500894468 49.94MB / 49.94MB 1.1s
+#5 sha256:3de69d675a4de6c71e2311f1e547de804e6e68f051a0b9e17e6283d500894468 49.94MB / 49.94MB 1.1s done
+#5 extracting sha256:68629629b516c3cd6f5e71ffbe18e32afb1ae5b4926c92d058c0f11ef1fd58a3 0.4s done
+#5 extracting sha256:8a8f99d8b62deb507fbd5795068231986ca9788dc403c54373a862cbbdc1090a done
+#5 extracting sha256:3de69d675a4de6c71e2311f1e547de804e6e68f051a0b9e17e6283d500894468
+#5 extracting sha256:3de69d675a4de6c71e2311f1e547de804e6e68f051a0b9e17e6283d500894468 0.6s done
+#5 DONE 1.8s
+
+#5 [builder  1/14] FROM docker.io/library/node:22-slim@sha256:53ada149d435c38b14476cb57e4a7da73c15595aba79bd6971b547ceb6d018bf
+#5 extracting sha256:6c81c36100ac3e6b034b455564d4455ecaa854542bc46cfb4a0bbca4817a6dcd 0.0s done
+#5 extracting sha256:c08735c7f0f9602a107c9b3b786ca0e9d07d35af36c3434a8c3fd9328aa4dd16 done
+#5 DONE 1.9s
+
+#8 [stage-1 2/4] WORKDIR /app
+#8 DONE 0.8s
+
+#9 [builder  2/14] RUN corepack enable
+#9 DONE 0.8s
+
+#10 [builder  3/14] WORKDIR /app
+#10 DONE 0.0s
+
+#11 [builder  4/14] COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
+#11 DONE 0.0s
+
+#12 [builder  5/14] COPY lib/db/package.json                lib/db/
+#12 DONE 0.0s
+
+#13 [builder  6/14] COPY lib/api-spec/package.json          lib/api-spec/
+#13 DONE 0.0s
+
+#14 [builder  7/14] COPY lib/api-client-react/package.json  lib/api-client-react/
+#14 DONE 0.0s
+
+#15 [builder  8/14] COPY lib/api-zod/package.json           lib/api-zod/
+#15 DONE 0.0s
+
+#16 [builder  9/14] COPY artifacts/api-server/package.json  artifacts/api-server/
+#16 DONE 0.0s
+
+#17 [builder 10/14] COPY artifacts/blackjack-bot/package.json artifacts/blackjack-bot/
+#17 DONE 0.0s
+
+#18 [builder 11/14] RUN pnpm install --frozen-lockfile
+#18 0.144 ! Corepack is about to download https://registry.npmjs.org/pnpm/-/pnpm-11.11.0.tgz
+#18 0.858 [WARN] The "pnpm" field in package.json is no longer read by pnpm. The following keys were ignored: "pnpm.onlyBuiltDependencies". See https://pnpm.io/settings for the new home of each setting.
+#18 0.881 Scope: all 7 workspace projects
+#18 1.028 ? Verifying lockfile against supply-chain policies (545 entries)...
+#18 1.038 Lockfile is up to date, resolution step is skipped
+#18 1.127 Progress: resolved 1, reused 0, downloaded 0, added 0
+#18 1.185 Packages: +522
+#18 1.185 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+#18 2.132 Progress: resolved 522, reused 0, downloaded 249, added 22
+#18 3.142 Progress: resolved 522, reused 0, downloaded 521, added 140
+#18 3.738 Progress: resolved 522, reused 0, downloaded 522, added 522, done
+#18 4.449 ✓ Lockfile passes supply-chain policies (545 entries in 3.4s)
+#18 5.394 
+#18 5.394 dependencies:
+#18 5.394 + @replit/connectors-sdk 0.4.1
+#18 5.394 
+#18 5.394 devDependencies:
+#18 5.394 + prettier 3.9.4
+#18 5.394 + typescript 5.9.3
+#18 5.394 
+#18 5.403 . preinstall$ sh -c 'rm -f package-lock.json yarn.lock; case "$npm_config_user_agent" in pnpm/*) ;; *) echo "Use pnpm instead" >&2; exit 1 ;; esac'
+#18 5.425 . preinstall: Done
+#18 5.486 [ERR_PNPM_IGNORED_BUILDS] Ignored build scripts: esbuild@0.27.3
+#18 5.486 
+#18 5.486 Run "pnpm approve-builds" to pick which dependencies should be allowed to run scripts.
+#18 ERROR: process "/bin/sh -c pnpm install --frozen-lockfile" did not complete successfully: exit code: 1
+------
+ > [builder 11/14] RUN pnpm install --frozen-lockfile:
+5.394 
+5.394 devDependencies:
+5.394 + prettier 3.9.4
+5.394 + typescript 5.9.3
+5.394 
+5.403 . preinstall$ sh -c 'rm -f package-lock.json yarn.lock; case "$npm_config_user_agent" in pnpm/*) ;; *) echo "Use pnpm instead" >&2; exit 1 ;; esac'
+5.425 . preinstall: Done
+5.486 [ERR_PNPM_IGNORED_BUILDS] Ignored build scripts: esbuild@0.27.3
+5.486 
+5.486 Run "pnpm approve-builds" to pick which dependencies should be allowed to run scripts.
+------
+Dockerfile:19
+--------------------
+  17 |     COPY artifacts/blackjack-bot/package.json artifacts/blackjack-bot/
+  18 |     
+  19 | >>> RUN pnpm install --frozen-lockfile
+  20 |     
+  21 |     # Copy source
+--------------------
+error: failed to solve: process "/bin/sh -c pnpm install --frozen-lockfile" did not complete successfully: exit code: 1
+Build failed ❌
