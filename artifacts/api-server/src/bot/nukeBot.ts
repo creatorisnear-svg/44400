@@ -1357,6 +1357,51 @@ class NukeBot {
   }
 
   /**
+   * Resolves a recipient string (raw snowflake, @mention, or username) to an
+   * actual Discord user ID (snowflake). The `transfer`/`give` slash command's
+   * `recipient` option is a USER (type 6) option — Discord rejects the
+   * interaction outright if the value isn't a real snowflake, e.g.:
+   * "data.options[0].value: Value \"someuser\" is not snowflake."
+   * Resolving up front means we throw a catchable, clear error instead of
+   * firing a doomed interaction that Discord bounces asynchronously.
+   */
+  private async resolveRecipientId(channel: any, rawRecipient: string): Promise<string> {
+    const cleaned = rawRecipient.trim().replace(/^<@!?(\d+)>$/, "$1").replace(/^@/, "");
+    if (/^\d{17,20}$/.test(cleaned)) return cleaned;
+
+    const guild = channel?.guild;
+    if (!guild?.members?.fetch) {
+      throw new Error(
+        `Recipient "${rawRecipient}" is not a Discord user ID (snowflake), and no server context is available to look up the username.`,
+      );
+    }
+
+    let matches: any[] = [];
+    try {
+      const fetched = await guild.members.fetch({ query: cleaned, limit: 5 });
+      matches = [...fetched.values()];
+    } catch {
+      matches = [];
+    }
+
+    const lower = cleaned.toLowerCase();
+    const exact = matches.find(
+      (m: any) =>
+        m.user?.username?.toLowerCase() === lower ||
+        m.user?.globalName?.toLowerCase() === lower ||
+        m.nickname?.toLowerCase() === lower,
+    );
+    const resolvedId = (exact ?? matches[0])?.user?.id ?? (exact ?? matches[0])?.id;
+
+    if (!resolvedId) {
+      throw new Error(
+        `Could not resolve recipient "${rawRecipient}" to a Discord user ID in this server. Enter their numeric user ID instead, or double-check the username.`,
+      );
+    }
+    return resolvedId;
+  }
+
+  /**
    * Sends a transfer slash/text command then waits for KA0SBOT's ephemeral
    * "Confirm transfer" message and clicks the green Confirm button.
    * Throws if the channel send fails; logs a warning if confirm times out.
@@ -1487,12 +1532,22 @@ class NukeBot {
     client.on('raw', rawHandler);
     client.on('messageCreate', onMsg);
 
+    let recipientId: string;
+    try {
+      recipientId = await this.resolveRecipientId(channel, toUsername);
+    } catch (resolveErr) {
+      clearTimeout(timer);
+      cleanup();
+      doResolve(false);
+      throw resolveErr;
+    }
+
     try {
       if (isSlash && settings.cloverId) {
         try {
           await (channel as any).sendSlash(
             settings.cloverId, slashName,
-            toUsername, amount, String(server),
+            recipientId, amount, String(server),
           );
         } catch (slashErr) {
           const slashErrMsg = (slashErr as Error).message ?? '';
@@ -1509,8 +1564,10 @@ class NukeBot {
           }
         }
       } else {
-        // Text command: no spaces after colons
-        const cmd = `${settings.giveCommand} recipient:@${toUsername} amount:${amount} server:${server}`;
+        // Text command: no spaces after colons. Use a real mention so the
+        // target bot can parse the recipient (plain "@name" text is not a
+        // Discord mention and would not resolve to a user).
+        const cmd = `${settings.giveCommand} recipient:<@${recipientId}> amount:${amount} server:${server}`;
         await (channel as any).send(cmd);
       }
     } catch (err) {
