@@ -1,0 +1,1 @@
+- [Discord selfbot sendSlash USER options](discord-selfbot-sendslash-user-options.md) — USER-type slash option values must be real snowflakes; the lib fires interactions fire-and-forget so bad values surface as unhandled rejections, not catchable errors.
