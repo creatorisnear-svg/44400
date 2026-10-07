@@ -1,5 +1,16 @@
 import { Router } from "express";
 import crypto from "crypto";
+import {
+  announceSetupCode,
+  authMode,
+  checkSetupCode,
+  createPassword,
+  ensureAuthLoaded,
+  noteFailure,
+  signingSecret,
+  tooManyFailures,
+  verifyPassword,
+} from "../lib/dashboardAuth";
 
 const router = Router();
 
@@ -34,20 +45,56 @@ export function verifyToken(token: string, secret: string): boolean {
   }
 }
 
-router.post("/login", (req, res) => {
+router.get("/status", async (_req, res) => {
+  await ensureAuthLoaded();
+  const mode = authMode();
+  if (mode === "setup") announceSetupCode();
+  return res.json({ mode });
+});
+
+router.post("/setup", async (req, res) => {
+  await ensureAuthLoaded();
+  if (authMode() !== "setup") {
+    return res.status(409).json({ error: "A password is already set. Sign in instead." });
+  }
+  if (tooManyFailures()) {
+    return res.status(429).json({ error: "Too many wrong tries. Wait a few minutes." });
+  }
+
+  const { code, password } = (req.body ?? {}) as { code?: unknown; password?: unknown };
+  if (!checkSetupCode(code)) {
+    noteFailure();
+    announceSetupCode(true);
+    return res.status(403).json({ error: "That setup code is wrong. Copy it from the server log." });
+  }
+  if (typeof password !== "string" || password.length < 8) {
+    return res.status(400).json({ error: "Use at least 8 characters." });
+  }
+
+  try {
+    await createPassword(password);
+  } catch (err) {
+    return res.status(409).json({ error: (err as Error).message });
+  }
+  return res.json({ token: signToken(signingSecret()!) });
+});
+
+router.post("/login", async (req, res) => {
+  await ensureAuthLoaded();
+  if (authMode() === "setup") {
+    return res.status(409).json({ error: "No password yet. Create one first." });
+  }
+  if (tooManyFailures()) {
+    return res.status(429).json({ error: "Too many wrong tries. Wait a few minutes." });
+  }
+
   const { password } = req.body as { password?: string };
-  const expected = process.env.DASHBOARD_PASSWORD;
-
-  if (!expected) {
-    return res.status(500).json({ error: "DASHBOARD_PASSWORD env var not set" });
+  if (typeof password !== "string" || !password || !verifyPassword(password)) {
+    noteFailure();
+    return res.status(401).json({ error: "Wrong password." });
   }
 
-  if (!password || password !== expected) {
-    return res.status(401).json({ error: "Invalid password" });
-  }
-
-  const token = signToken(expected);
-  return res.json({ token });
+  return res.json({ token: signToken(signingSecret()!) });
 });
 
 router.post("/logout", (_req, res) => {

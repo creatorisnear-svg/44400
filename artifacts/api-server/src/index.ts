@@ -1,17 +1,11 @@
 import app from "./app";
 import { logger } from "./lib/logger";
 import { nukeBot } from "./bot/nukeBot";
-import { db } from "@workspace/db";
+import { db, ensureSchema } from "@workspace/db";
 import { accountsTable } from "@workspace/db/schema";
+import { announceSetupCode, ensureAuthLoaded } from "./lib/dashboardAuth";
 
-const rawPort = process.env["PORT"];
-
-if (!rawPort) {
-  throw new Error(
-    "PORT environment variable is required but was not provided.",
-  );
-}
-
+const rawPort = process.env["PORT"] || "8080";
 const port = Number(rawPort);
 
 if (Number.isNaN(port) || port <= 0) {
@@ -21,16 +15,27 @@ if (Number.isNaN(port) || port <= 0) {
 const server = app.listen(port, () => {
   logger.info({ port }, "Server listening");
 
-  // Auto-start the bot once the server is up.
-  // Checks for at least one enabled account with a token before starting.
   setImmediate(async () => {
+    // Create any missing tables so a brand-new database just works.
+    try {
+      await ensureSchema();
+      logger.info("Database ready");
+    } catch (err) {
+      logger.error({ err }, "Could not prepare the database. Check DATABASE_URL.");
+    }
+
+    await ensureAuthLoaded();
+    announceSetupCode(true);
+
+    // Auto-start the bot once the server is up.
+    // Checks for at least one enabled account with a token before starting.
     try {
       let hasAccounts = false;
       try {
         const rows = await db.select({ id: accountsTable.id }).from(accountsTable).limit(1);
         hasAccounts = rows.length > 0;
       } catch {
-        // DB not ready yet (e.g. schema not pushed in dev) — assume accounts exist
+        // DB not ready yet — assume accounts exist
         // so we still attempt to start; nukeBot.start() will handle it gracefully.
         hasAccounts = true;
       }

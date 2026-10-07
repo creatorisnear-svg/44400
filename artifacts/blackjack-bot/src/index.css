@@ -4,6 +4,24 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* Halo palette: hue-neutral blacks and grays, one gold accent. */
+@theme {
+  --color-canvas: #0b0b0b;
+  --color-panel: #121212;
+  --color-raised: #191919;
+  --color-hover: #202020;
+  --color-line: #242424;
+  --color-line-strong: #343434;
+  --color-fg: #f2f2f2;
+  --color-fg-2: #a8a8a8;
+  --color-fg-3: #707070;
+  --color-gold: #e6b450;
+  --color-gold-strong: #f1c66e;
+  --color-ok: #4cb782;
+  --color-warn: #e08c3c;
+  --color-bad: #e5534b;
+}
+
 @theme inline {
   --color-background: hsl(var(--background));
   --color-foreground: hsl(var(--foreground));
@@ -66,74 +84,73 @@
   --radius-xl: calc(var(--radius) + 4px);
 }
 
-/* Dark theme — AVIV Dashboard */
-:root {
+/* Shared tokens for the shadcn/ui primitives. The app is always dark. */
+:root,
+.dark {
   --button-outline: rgba(255, 255, 255, 0.1);
   --badge-outline: rgba(255, 255, 255, 0.05);
   --opaque-button-border-intensity: 9;
   --elevate-1: rgba(255, 255, 255, 0.04);
-  --elevate-2: rgba(255, 255, 255, 0.09);
+  --elevate-2: rgba(255, 255, 255, 0.08);
 
-  /* Background: near-black zinc */
-  --background: 240 10% 4%;
+  --background: 0 0% 4.3%;
   --foreground: 0 0% 95%;
 
-  --border: 240 6% 20%;
-  --input: 240 6% 18%;
-  --ring: 45 96% 53%;
+  --border: 0 0% 14%;
+  --input: 0 0% 22%;
+  --ring: 40 75% 61%;
 
-  --card: 240 10% 6%;
+  --card: 0 0% 7%;
   --card-foreground: 0 0% 95%;
-  --card-border: 240 6% 18%;
+  --card-border: 0 0% 14%;
 
-  --popover: 240 10% 6%;
+  --popover: 0 0% 8%;
   --popover-foreground: 0 0% 95%;
-  --popover-border: 240 6% 18%;
+  --popover-border: 0 0% 16%;
 
-  /* Yellow/amber primary — matches nuke bot accent */
-  --primary: 45 96% 53%;
-  --primary-foreground: 240 10% 4%;
+  --primary: 40 75% 61%;
+  --primary-foreground: 0 0% 8%;
 
-  --secondary: 240 6% 16%;
-  --secondary-foreground: 0 0% 85%;
+  --secondary: 0 0% 12%;
+  --secondary-foreground: 0 0% 90%;
 
-  --muted: 240 6% 12%;
-  --muted-foreground: 240 5% 55%;
+  --muted: 0 0% 10%;
+  --muted-foreground: 0 0% 55%;
 
-  --accent: 240 6% 14%;
+  --accent: 0 0% 13%;
   --accent-foreground: 0 0% 95%;
 
-  --destructive: 0 72% 51%;
+  --destructive: 3 75% 59%;
   --destructive-foreground: 0 0% 98%;
 
-  --sidebar: 240 10% 5%;
-  --sidebar-foreground: 0 0% 85%;
-  --sidebar-border: 240 6% 16%;
-  --sidebar-primary: 45 96% 53%;
-  --sidebar-primary-foreground: 240 10% 4%;
-  --sidebar-accent: 240 6% 12%;
-  --sidebar-accent-foreground: 0 0% 85%;
-  --sidebar-ring: 45 96% 53%;
+  --sidebar: 0 0% 6%;
+  --sidebar-foreground: 0 0% 88%;
+  --sidebar-border: 0 0% 14%;
+  --sidebar-primary: 40 75% 61%;
+  --sidebar-primary-foreground: 0 0% 8%;
+  --sidebar-accent: 0 0% 12%;
+  --sidebar-accent-foreground: 0 0% 88%;
+  --sidebar-ring: 40 75% 61%;
 
-  --chart-1: 45 96% 53%;
-  --chart-2: 160 84% 39%;
-  --chart-3: 217 91% 60%;
-  --chart-4: 0 72% 51%;
-  --chart-5: 271 81% 56%;
+  --chart-1: 40 75% 61%;
+  --chart-2: 151 42% 51%;
+  --chart-3: 0 0% 70%;
+  --chart-4: 3 75% 59%;
+  --chart-5: 27 72% 56%;
 
-  --app-font-sans: 'Inter', sans-serif;
+  --app-font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
   --app-font-serif: Georgia, serif;
-  --app-font-mono: 'JetBrains Mono', 'Fira Code', Menlo, monospace;
+  --app-font-mono: ui-monospace, 'SF Mono', SFMono-Regular, Menlo, Consolas, monospace;
   --radius: 0.5rem;
 
-  --shadow-2xs: 0 1px 2px rgba(0,0,0,0.5);
-  --shadow-xs: 0 1px 3px rgba(0,0,0,0.5);
-  --shadow-sm: 0 2px 4px rgba(0,0,0,0.5);
-  --shadow: 0 4px 6px rgba(0,0,0,0.5);
-  --shadow-md: 0 6px 10px rgba(0,0,0,0.5);
-  --shadow-lg: 0 10px 15px rgba(0,0,0,0.5);
-  --shadow-xl: 0 20px 25px rgba(0,0,0,0.5);
-  --shadow-2xl: 0 25px 50px rgba(0,0,0,0.5);
+  --shadow-2xs: none;
+  --shadow-xs: none;
+  --shadow-sm: none;
+  --shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.45);
+  --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.5);
+  --shadow-xl: 0 16px 40px rgba(0, 0, 0, 0.55);
+  --shadow-2xl: 0 24px 56px rgba(0, 0, 0, 0.6);
 
   --tracking-normal: 0em;
   --spacing: 0.25rem;
@@ -145,58 +162,8 @@
   --muted-border: hsl(var(--muted));
   --accent-border: hsl(var(--accent));
   --destructive-border: hsl(var(--destructive));
-}
 
-/* Dark class mirrors root — app is always dark */
-.dark {
-  --button-outline: rgba(255, 255, 255, 0.1);
-  --badge-outline: rgba(255, 255, 255, 0.05);
-  --opaque-button-border-intensity: 9;
-  --elevate-1: rgba(255, 255, 255, 0.04);
-  --elevate-2: rgba(255, 255, 255, 0.09);
-
-  --background: 240 10% 4%;
-  --foreground: 0 0% 95%;
-  --border: 240 6% 20%;
-  --input: 240 6% 18%;
-  --ring: 45 96% 53%;
-  --card: 240 10% 6%;
-  --card-foreground: 0 0% 95%;
-  --card-border: 240 6% 18%;
-  --popover: 240 10% 6%;
-  --popover-foreground: 0 0% 95%;
-  --popover-border: 240 6% 18%;
-  --primary: 45 96% 53%;
-  --primary-foreground: 240 10% 4%;
-  --secondary: 240 6% 16%;
-  --secondary-foreground: 0 0% 85%;
-  --muted: 240 6% 12%;
-  --muted-foreground: 240 5% 55%;
-  --accent: 240 6% 14%;
-  --accent-foreground: 0 0% 95%;
-  --destructive: 0 72% 51%;
-  --destructive-foreground: 0 0% 98%;
-  --sidebar: 240 10% 5%;
-  --sidebar-foreground: 0 0% 85%;
-  --sidebar-border: 240 6% 16%;
-  --sidebar-primary: 45 96% 53%;
-  --sidebar-primary-foreground: 240 10% 4%;
-  --sidebar-accent: 240 6% 12%;
-  --sidebar-accent-foreground: 0 0% 85%;
-  --sidebar-ring: 45 96% 53%;
-  --chart-1: 45 96% 53%;
-  --chart-2: 160 84% 39%;
-  --chart-3: 217 91% 60%;
-  --chart-4: 0 72% 51%;
-  --chart-5: 271 81% 56%;
-
-  --sidebar-primary-border: hsl(var(--sidebar-primary));
-  --sidebar-accent-border: hsl(var(--sidebar-accent));
-  --primary-border: hsl(var(--primary));
-  --secondary-border: hsl(var(--secondary));
-  --muted-border: hsl(var(--muted));
-  --accent-border: hsl(var(--accent));
-  --destructive-border: hsl(var(--destructive));
+  color-scheme: dark;
 }
 
 @layer base {
@@ -204,12 +171,57 @@
     @apply border-border;
   }
 
+  html {
+    background: var(--color-canvas);
+  }
+
   body {
-    @apply font-sans antialiased bg-background text-foreground;
+    @apply font-sans antialiased bg-canvas text-fg;
+    font-size: 14px;
+    font-feature-settings: 'cv11', 'ss01';
+  }
+
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: #343434 transparent;
+  }
+
+  ::selection {
+    background: color-mix(in srgb, var(--color-gold) 35%, transparent);
+  }
+
+  input[type='number']::-webkit-inner-spin-button,
+  input[type='number']::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  input[type='number'] {
+    -moz-appearance: textfield;
+  }
+
+  select {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23a8a8a8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 0.75rem center;
+    -webkit-appearance: none;
+    appearance: none;
+  }
+  select option,
+  select optgroup {
+    background: #121212;
+    color: #f2f2f2;
   }
 }
 
 @layer utilities {
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
   input[type='search']::-webkit-search-cancel-button {
     @apply hidden;
   }

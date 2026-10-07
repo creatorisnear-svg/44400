@@ -5,3 +5,4 @@ export * from "./transfers";
 export * from "./botConfig";
 export * from "./gameHands";
 export * from "./gameSessions";
+export * from "./dashboardAuth";

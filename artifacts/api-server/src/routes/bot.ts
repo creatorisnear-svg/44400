@@ -21,7 +21,10 @@ router.post("/accounts/validate-token", async (req, res) => {
     const r = await fetch("https://discord.com/api/v10/users/@me", {
       headers: { Authorization: token.trim() },
     });
-    if (!r.ok) return res.status(400).json({ error: `Discord rejected token (${r.status} ${r.statusText})` });
+    if (r.status === 401) {
+      return res.status(400).json({ error: "Discord says this token doesn't work. Check you copied all of it, or the account may have logged out." });
+    }
+    if (!r.ok) return res.status(400).json({ error: `Discord rejected the token (${r.status} ${r.statusText}).` });
 
     const data: any = await r.json();
     const avatarUrl = data.avatar
@@ -41,10 +44,12 @@ router.get("/accounts", async (_req, res) => {
     .where(eq(accountsTable.deleted, false))
     .orderBy(accountsTable.id);
   const status = nukeBot.getStatus();
-  const accountsWithStatus = accounts.map((acc) => {
+  // Never send tokens back to the browser; the dashboard doesn't need them.
+  const accountsWithStatus = accounts.map(({ token, ...acc }) => {
     const runtime = status.accounts.find((a) => a.accountId === acc.id);
     return {
       ...acc,
+      hasToken: token.length > 0,
       connected: runtime?.connected ?? false,
       connectionStatus: runtime?.status ?? "disconnected",
     };
@@ -56,6 +61,14 @@ router.post("/accounts", async (req, res) => {
   const { label, token, enabled, username, ign } = req.body;
   if (!token || typeof token !== "string" || !token.trim()) {
     return res.status(400).json({ error: "token is required" });
+  }
+  const [dupe] = await db
+    .select({ label: accountsTable.label })
+    .from(accountsTable)
+    .where(and(eq(accountsTable.token, token.trim()), eq(accountsTable.deleted, false)))
+    .limit(1);
+  if (dupe) {
+    return res.status(409).json({ error: `Already added as "${dupe.label}".` });
   }
   const [created] = await db
     .insert(accountsTable)
@@ -72,7 +85,8 @@ router.post("/accounts", async (req, res) => {
 
   nukeBot.hotConnectAccount(created.id).catch(() => {});
 
-  return res.json(created);
+  const { token: _t, ...safeCreated } = created;
+  return res.json(safeCreated);
 });
 
 router.delete("/accounts/:id", async (req, res) => {
@@ -108,7 +122,12 @@ router.put("/accounts/:id", async (req, res) => {
     .set(updateData)
     .where(and(eq(accountsTable.id, id), eq(accountsTable.deleted, false)))
     .returning();
-  return res.json(updated);
+  if (!updated) return res.status(404).json({ error: "Account not found" });
+  // Apply the on/off switch right away instead of on the next start.
+  if (enabled === false) nukeBot.hotDisconnectAccount(id);
+  if (enabled === true) nukeBot.hotConnectAccount(id).catch(() => {});
+  const { token: _u, ...safeUpdated } = updated;
+  return res.json(safeUpdated);
 });
 
 router.get("/bot/settings", async (_req, res) => {
@@ -196,7 +215,7 @@ router.post("/accounts/refresh-balances", async (_req, res) => {
     const minutes = Math.max(0, (count - 1) * 10);
     return res.json({
       ok: true,
-      message: `Balance refresh started for ${count} account(s). Each /balance is 10 min apart — all done in ~${minutes} min.`,
+      message: `Checking ${count} account${count === 1 ? "" : "s"}, one every 10 minutes. Done in about ${minutes} min.`,
     });
   } catch (err) {
     return res.status(400).json({ error: (err as Error).message });

@@ -1,6 +1,6 @@
 kind = "web"
 previewPath = "/"
-title = "AVIV — Nuke Bot Dashboard"
+title = "Halo"
 version = "1.0.0"
 id = "artifacts/blackjack-bot"
 router = "path"
