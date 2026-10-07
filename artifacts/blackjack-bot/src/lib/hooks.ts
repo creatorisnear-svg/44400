@@ -34,6 +34,22 @@ export interface FillOrder {
   done: boolean;
 }
 
+export interface JoinStep {
+  accountId: number;
+  label: string;
+  invite: string;
+  status: "pending" | "joining" | "joined" | "already" | "skipped" | "error";
+  error?: string;
+}
+
+export interface JoinJob {
+  invites: { code: string; guildId: string | null; name: string }[];
+  steps: JoinStep[];
+  pace: "careful" | "quick";
+  nextAt: number | null;
+  done: boolean;
+}
+
 export interface BotStatus {
   running: boolean;
   accounts: { accountId: number; label: string; connected: boolean; status: ConnectionStatus }[];
@@ -42,6 +58,13 @@ export interface BotStatus {
   uptime: number;
   nextAutoTransferAt: number | null;
   fillOrder: FillOrder | null;
+  joinJob: JoinJob | null;
+}
+
+export interface SharedServer {
+  id: string;
+  name: string;
+  accountIds: number[];
 }
 
 export interface BotSettings {
@@ -92,6 +115,14 @@ export function useSettings() {
     queryKey: ["bot-settings"],
     queryFn: () => apiFetch("/api/bot/settings"),
     staleTime: 10_000,
+  });
+}
+
+export function useServers() {
+  return useQuery<{ online: number; servers: SharedServer[] }>({
+    queryKey: ["servers"],
+    queryFn: () => apiFetch("/api/servers"),
+    refetchInterval: 5000,
   });
 }
 

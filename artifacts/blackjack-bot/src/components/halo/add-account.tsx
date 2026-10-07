@@ -154,19 +154,32 @@ interface Row {
   error?: string;
 }
 
+const TOKEN_RE = /(?:mfa\.[\w-]{20,}|[\w-]{20,30}\.[\w-]{5,8}\.[\w-]{25,45})/;
+
+/** Pulls tokens out of whatever was pasted: plain lines, name:token, email:pass:token, JSON, logs. */
 function parseLines(text: string): Row[] {
   const seen = new Set<string>();
   const rows: Row[] = [];
+  const add = (token: string, label: string) => {
+    if (!token || seen.has(token)) return;
+    seen.add(token);
+    rows.push({ label, token, state: "waiting" });
+  };
   for (const raw of text.split(/\r?\n/)) {
     const line = raw.trim();
     if (!line) continue;
-    // Tokens never contain ":", so "name:token" splits cleanly.
+    const m = TOKEN_RE.exec(line);
+    if (m) {
+      const prefix = line.slice(0, m.index).replace(/[\s:|,;="'-]+$/, "").trim();
+      // A prefix with "@" or ":" is login info (email:password), not a name.
+      add(m[0], prefix && !/[@:]/.test(prefix) && prefix.length <= 40 ? prefix : "");
+      continue;
+    }
+    // Not the usual shape: accept a single long word as a token anyway.
     const i = line.indexOf(":");
     const label = i > 0 ? line.slice(0, i).trim() : "";
-    const token = (i > 0 ? line.slice(i + 1) : line).trim();
-    if (!token || seen.has(token)) continue;
-    seen.add(token);
-    rows.push({ label, token, state: "waiting" });
+    const token = (i > 0 ? line.slice(i + 1) : line).trim().replace(/^["']|["'],?$/g, "");
+    if (token.length > 30 && !/\s/.test(token)) add(token, label);
   }
   return rows;
 }
@@ -177,25 +190,40 @@ export function AddManyAccounts({ onAdded }: { onAdded?: () => void }) {
   const [text, setText] = useState("");
   const [rows, setRows] = useState<Row[]>([]);
   const [busy, setBusy] = useState(false);
+  const run = useRef(0);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const patch = (i: number, p: Partial<Row>) =>
     setRows((rs) => rs.map((r, j) => (j === i ? { ...r, ...p } : r)));
 
-  async function checkAll() {
-    const parsed = parseLines(text);
+  async function checkAll(value: string) {
+    const id = ++run.current;
+    const parsed = parseLines(value);
     setRows(parsed);
-    setBusy(true);
+    setBusy(parsed.length > 0);
     for (let i = 0; i < parsed.length; i++) {
+      if (run.current !== id) return;
       patch(i, { state: "checking" });
       try {
         const p = await verifyToken(parsed[i].token);
+        if (run.current !== id) return;
         patch(i, { state: "ok", preview: p });
       } catch (e) {
+        if (run.current !== id) return;
         patch(i, { state: "bad", error: (e as Error).message });
       }
       await pause(350);
     }
+    if (run.current === id) setBusy(false);
+  }
+
+  function onText(v: string) {
+    setText(v);
+    run.current++;
+    setRows([]);
     setBusy(false);
+    if (timer.current) clearTimeout(timer.current);
+    if (v.trim()) timer.current = setTimeout(() => checkAll(v), 700);
   }
 
   async function addGood() {
@@ -227,17 +255,14 @@ export function AddManyAccounts({ onAdded }: { onAdded?: () => void }) {
 
   return (
     <div className="space-y-4">
-      <Field label="Tokens" hint="One per line. To name one, write name:token.">
+      <Field label="Tokens" hint="Paste one or a whole list, in any format. Halo finds the tokens and checks them for you.">
         <Textarea
           rows={6}
           spellCheck={false}
           className="font-mono text-[12px] leading-relaxed"
           placeholder={"token1\nMain alt:token2"}
           value={text}
-          onChange={(e) => {
-            setText(e.target.value);
-            setRows([]);
-          }}
+          onChange={(e) => onText(e.target.value)}
         />
       </Field>
 
@@ -272,23 +297,85 @@ export function AddManyAccounts({ onAdded }: { onAdded?: () => void }) {
       )}
 
       <div className="flex flex-wrap items-center gap-2">
-        {!checked || good === 0 ? (
-          <Button variant="primary" busy={busy} disabled={!text.trim()} onClick={checkAll}>
-            Check tokens
-          </Button>
-        ) : (
-          <Button variant="primary" busy={busy} onClick={addGood}>
-            Add {good} account{good === 1 ? "" : "s"}
-          </Button>
-        )}
+        <Button variant="primary" busy={busy} disabled={!checked || good === 0} onClick={addGood}>
+          {good > 0 ? `Add ${good} account${good === 1 ? "" : "s"}` : "Add accounts"}
+        </Button>
         {added > 0 && <span className="text-[13px] text-fg-2">{added} added.</span>}
       </div>
     </div>
   );
 }
 
+/** Log in with email + password (+ 2FA code); the server fetches the token and adds the account. */
+export function AddByLogin({ onAdded }: { onAdded?: () => void }) {
+  const qc = useQueryClient();
+  const [login, setLogin] = useState("");
+  const [password, setPassword] = useState("");
+  const [code, setCode] = useState("");
+  const [ticket, setTicket] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const [done, setDone] = useState<string | null>(null);
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    setBusy(true);
+    setErr(null);
+    try {
+      const body = ticket ? { ticket, code } : { login, password };
+      const r = await apiFetch("/api/accounts/login", { method: "POST", body: JSON.stringify(body) });
+      if (r.needsCode) {
+        setTicket(r.ticket);
+        setCode("");
+      } else {
+        setDone(r.username ? `Added @${r.username}.` : "Added.");
+        setLogin("");
+        setPassword("");
+        setCode("");
+        setTicket(null);
+        qc.invalidateQueries({ queryKey: ["accounts"] });
+        onAdded?.();
+      }
+    } catch (e) {
+      setErr((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <form onSubmit={submit} className="space-y-4">
+      {!ticket ? (
+        <>
+          <Field label="Email or phone">
+            <Input value={login} autoComplete="off" onChange={(e) => setLogin(e.target.value)} />
+          </Field>
+          <Field label="Password" hint="Used once to log in. Halo never saves it.">
+            <Input type="password" value={password} autoComplete="off" onChange={(e) => setPassword(e.target.value)} />
+          </Field>
+        </>
+      ) : (
+        <Field label="2FA code" hint="The 6-digit code from the account's authenticator app.">
+          <Input
+            inputMode="numeric"
+            className="tabular"
+            autoFocus
+            value={code}
+            onChange={(e) => setCode(e.target.value.replace(/[^\d\s]/g, ""))}
+          />
+        </Field>
+      )}
+      {err && <Notice tone="bad">{err}</Notice>}
+      {done && <Notice tone="ok">{done}</Notice>}
+      <Button type="submit" variant="primary" busy={busy} disabled={ticket ? code.replace(/\s/g, "").length < 6 : !login.trim() || !password}>
+        {ticket ? "Confirm code" : "Log in and add"}
+      </Button>
+    </form>
+  );
+}
+
 export function AddAccountsDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v: boolean) => void }) {
-  const [mode, setMode] = useState<"one" | "many">("one");
+  const [mode, setMode] = useState<"paste" | "login">("paste");
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="w-[calc(100%-2rem)] max-w-lg rounded-lg border-line-strong bg-panel p-5 sm:p-6 gap-5">
@@ -303,11 +390,15 @@ export function AddAccountsDialog({ open, onOpenChange }: { open: boolean; onOpe
           value={mode}
           onChange={setMode}
           options={[
-            { value: "one", label: "One" },
-            { value: "many", label: "Several at once" },
+            { value: "paste", label: "Paste tokens" },
+            { value: "login", label: "Log in" },
           ]}
         />
-        {mode === "one" ? <AddOneAccount onAdded={() => onOpenChange(false)} /> : <AddManyAccounts />}
+        {mode === "paste" ? (
+          <AddManyAccounts onAdded={() => setTimeout(() => onOpenChange(false), 900)} />
+        ) : (
+          <AddByLogin onAdded={() => setTimeout(() => onOpenChange(false), 900)} />
+        )}
       </DialogContent>
     </Dialog>
   );

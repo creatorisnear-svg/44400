@@ -57,36 +57,111 @@ router.get("/accounts", async (_req, res) => {
   return res.json({ accounts: accountsWithStatus });
 });
 
+async function insertAccount(
+  token: string,
+  opts: { label?: string; enabled?: boolean; username?: string; ign?: string },
+): Promise<{ dupe: string } | { created: typeof accountsTable.$inferSelect }> {
+  const [dupe] = await db
+    .select({ label: accountsTable.label })
+    .from(accountsTable)
+    .where(and(eq(accountsTable.token, token), eq(accountsTable.deleted, false)))
+    .limit(1);
+  if (dupe) return { dupe: dupe.label };
+  const [created] = await db
+    .insert(accountsTable)
+    .values({
+      label: (opts.label || "Account").trim(),
+      token,
+      enabled: opts.enabled !== false,
+      manual: true,
+      deleted: false,
+      ...(opts.username ? { username: opts.username.trim() } : {}),
+      ...(opts.ign ? { ign: opts.ign.trim() } : {}),
+    })
+    .returning();
+  nukeBot.hotConnectAccount(created.id).catch(() => {});
+  return { created };
+}
+
 router.post("/accounts", async (req, res) => {
   const { label, token, enabled, username, ign } = req.body;
   if (!token || typeof token !== "string" || !token.trim()) {
     return res.status(400).json({ error: "token is required" });
   }
-  const [dupe] = await db
-    .select({ label: accountsTable.label })
-    .from(accountsTable)
-    .where(and(eq(accountsTable.token, token.trim()), eq(accountsTable.deleted, false)))
-    .limit(1);
-  if (dupe) {
-    return res.status(409).json({ error: `Already added as "${dupe.label}".` });
-  }
-  const [created] = await db
-    .insert(accountsTable)
-    .values({
-      label: (label || "Account").trim(),
-      token: token.trim(),
-      enabled: enabled !== false,
-      manual: true,
-      deleted: false,
-      ...(username ? { username: username.trim() } : {}),
-      ...(ign ? { ign: ign.trim() } : {}),
-    })
-    .returning();
-
-  nukeBot.hotConnectAccount(created.id).catch(() => {});
-
-  const { token: _t, ...safeCreated } = created;
+  const r = await insertAccount(token.trim(), { label, enabled, username, ign });
+  if ("dupe" in r) return res.status(409).json({ error: `Already added as "${r.dupe}".` });
+  const { token: _t, ...safeCreated } = r.created;
   return res.json(safeCreated);
+});
+
+// Log in with email + password (+ 2FA code) and add the account. The password is
+// only used for this one request; it is never stored or logged.
+const LOGIN_HEADERS = {
+  "Content-Type": "application/json",
+  "User-Agent":
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+  "X-Discord-Locale": "en-US",
+};
+
+router.post("/accounts/login", async (req, res) => {
+  const { login, password, code, ticket, label, ign } = req.body ?? {};
+  const fail = (error: string, extra: object = {}) => res.status(400).json({ error, ...extra });
+  try {
+    let token: string | undefined;
+    if (ticket && code) {
+      const r = await fetch("https://discord.com/api/v9/auth/mfa/totp", {
+        method: "POST",
+        headers: LOGIN_HEADERS,
+        body: JSON.stringify({ code: String(code).replace(/\s/g, ""), ticket, login_source: null, gift_code_sku_id: null }),
+      });
+      const d: any = await r.json().catch(() => ({}));
+      if (!r.ok || !d.token) {
+        return fail(d.message?.includes("Invalid") ? "That code is wrong or expired. Try the next one." : d.message || "The 2FA code was refused.", { needsCode: true, ticket });
+      }
+      token = d.token;
+    } else {
+      if (typeof login !== "string" || typeof password !== "string" || !login.trim() || !password) {
+        return fail("Enter the account's email (or phone) and password.");
+      }
+      const r = await fetch("https://discord.com/api/v9/auth/login", {
+        method: "POST",
+        headers: LOGIN_HEADERS,
+        body: JSON.stringify({ login: login.trim(), password, undelete: false, login_source: null, gift_code_sku_id: null }),
+      });
+      const d: any = await r.json().catch(() => ({}));
+      if (d.captcha_key) {
+        return fail("Discord wants a captcha for this login, and Halo can't solve those. Log in once in a browser, copy the token, and paste it instead.");
+      }
+      if (d.mfa && d.ticket) {
+        if (!d.totp) return fail("This account uses SMS or a security key for 2FA, which Halo can't use. Paste its token instead.");
+        return res.json({ needsCode: true, ticket: d.ticket });
+      }
+      if (!r.ok || !d.token) {
+        const text = JSON.stringify(d);
+        if (/INVALID_LOGIN|Login or password is invalid/i.test(text)) return fail("Wrong email or password.");
+        if (/ACCOUNT_LOGIN_VERIFICATION_EMAIL|new login location/i.test(text)) {
+          return fail("Discord emailed that account a link to approve this new location. Approve it, then try again.");
+        }
+        return fail(d.message || `Discord refused the login (${r.status}).`);
+      }
+      token = d.token;
+    }
+
+    // Look up who it is so the list shows a real name.
+    let username: string | undefined;
+    let globalName: string | undefined;
+    const me = await fetch("https://discord.com/api/v10/users/@me", { headers: { Authorization: token! } });
+    if (me.ok) {
+      const u: any = await me.json();
+      username = u.username;
+      globalName = u.global_name ?? undefined;
+    }
+    const added = await insertAccount(token!, { label: label || globalName || username, username, ign });
+    if ("dupe" in added) return res.status(409).json({ error: `Already added as "${added.dupe}".` });
+    return res.json({ ok: true, username, label: added.created.label });
+  } catch (err) {
+    return res.status(500).json({ error: (err as Error).message });
+  }
 });
 
 router.delete("/accounts/:id", async (req, res) => {
@@ -205,6 +280,35 @@ router.post("/transfer/fill", async (req, res) => {
 
 router.post("/transfer/fill/cancel", async (_req, res) => {
   nukeBot.cancelFillOrder();
+  return res.json({ ok: true });
+});
+
+router.get("/servers", (_req, res) => {
+  return res.json(nukeBot.listServers());
+});
+
+// Accepts full links (discord.gg/abc, discord.com/invite/abc) or bare codes.
+const inviteCode = (s: unknown) =>
+  String(s ?? "").trim().match(/^(?:https?:\/\/)?(?:(?:www\.)?discord(?:app)?\.(?:gg|com\/invite)\/)?([A-Za-z0-9-]{2,64})\/?$/)?.[1] ?? null;
+
+router.post("/servers/join", async (req, res) => {
+  const { invites, accountIds, pace } = req.body ?? {};
+  const raw: unknown[] = Array.isArray(invites) ? invites : [];
+  const codes = [...new Set(raw.map(inviteCode))];
+  if (!codes.length) return res.status(400).json({ error: "Paste at least one invite." });
+  if (codes.includes(null)) return res.status(400).json({ error: "One of those isn't an invite link or code." });
+  if (codes.length > 10) return res.status(400).json({ error: "Up to 10 invites at a time." });
+  const ids = Array.isArray(accountIds) ? accountIds.map(Number).filter(Number.isInteger) : null;
+  try {
+    await nukeBot.startJoinJob(codes as string[], ids, pace === "quick" ? "quick" : "careful");
+    return res.json({ ok: true });
+  } catch (err) {
+    return res.status(400).json({ error: (err as Error).message });
+  }
+});
+
+router.post("/servers/join/cancel", (_req, res) => {
+  nukeBot.cancelJoinJob();
   return res.json({ ok: true });
 });
 

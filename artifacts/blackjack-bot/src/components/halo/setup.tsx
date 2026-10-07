@@ -29,7 +29,7 @@ function Step({
       <span
         className={cn(
           "mt-0.5 w-6 h-6 rounded-full shrink-0 flex items-center justify-center text-[12px] font-semibold tabular",
-          done ? "bg-ok/15 text-ok" : current ? "border border-gold text-gold" : "border border-line-strong text-fg-3",
+          done ? "bg-ok/15 text-ok" : current ? "border border-halo text-halo" : "border border-line-strong text-fg-3",
         )}
       >
         {done ? <Check className="w-3.5 h-3.5" strokeWidth={2.5} /> : n}

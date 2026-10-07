@@ -17,7 +17,7 @@ async function post(path: string, body: unknown) {
   return data;
 }
 
-export default function Login({ onAuth }: { onAuth: () => void }) {
+export default function Login({ onAuth, onBack }: { onAuth: () => void; onBack?: () => void }) {
   const [mode, setMode] = useState<Mode | null>(null);
   const [offline, setOffline] = useState(false);
   const [password, setPassword] = useState("");
@@ -62,9 +62,16 @@ export default function Login({ onAuth }: { onAuth: () => void }) {
     <div className="min-h-screen bg-canvas flex flex-col">
       <div className="flex-1 flex items-center justify-center px-4 py-12">
         <div className="w-full max-w-[360px]">
-          <div className="flex items-center gap-2.5 mb-8">
-            <HaloMark size={28} />
-            <span className="text-lg font-semibold tracking-tight">Halo</span>
+          <div className="flex items-center justify-between mb-8">
+            <div className="flex items-center gap-2.5">
+              <HaloMark size={28} />
+              <span className="text-lg font-semibold tracking-tight">Halo</span>
+            </div>
+            {onBack && (
+              <button type="button" onClick={onBack} className="text-[13px] text-fg-3 hover:text-fg-2">
+                Back
+              </button>
+            )}
           </div>
 
           {mode === null ? null : (

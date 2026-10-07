@@ -55,7 +55,7 @@ function NukeRow({ event }: { event: NukeEvent }) {
             {timeAgo(event.detectedAt)} · {ok} of {total} claimed{skipped ? ` · ${skipped} skipped` : ""}
           </div>
         </div>
-        <span className={cn("text-sm tabular font-medium", event.totalScrapClaimed > 0 ? "text-gold" : "text-fg-3")}>
+        <span className={cn("text-sm tabular font-medium", event.totalScrapClaimed > 0 ? "text-halo" : "text-fg-3")}>
           +{num(event.totalScrapClaimed)}
         </span>
         <ChevronDown className={cn("w-4 h-4 text-fg-3 transition-transform", open && "rotate-180")} />

@@ -4,7 +4,7 @@
 
 @custom-variant dark (&:is(.dark *));
 
-/* Halo palette: hue-neutral blacks and grays, one gold accent. */
+/* Halo palette: hue-neutral blacks and grays, one purple accent. */
 @theme {
   --color-canvas: #0b0b0b;
   --color-panel: #121212;
@@ -15,8 +15,8 @@
   --color-fg: #f2f2f2;
   --color-fg-2: #a8a8a8;
   --color-fg-3: #707070;
-  --color-gold: #e6b450;
-  --color-gold-strong: #f1c66e;
+  --color-halo: #b86cf0;
+  --color-halo-strong: #c98cf5;
   --color-ok: #4cb782;
   --color-warn: #e08c3c;
   --color-bad: #e5534b;
@@ -187,7 +187,7 @@
   }
 
   ::selection {
-    background: color-mix(in srgb, var(--color-gold) 35%, transparent);
+    background: color-mix(in srgb, var(--color-halo) 35%, transparent);
   }
 
   input[type='number']::-webkit-inner-spin-button,

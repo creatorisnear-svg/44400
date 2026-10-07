@@ -10,7 +10,9 @@ import Accounts from "@/pages/accounts";
 import Transfer from "@/pages/transfer";
 import History from "@/pages/history";
 import Settings from "@/pages/settings";
+import JoinServers from "@/pages/join";
 import Login from "@/pages/login";
+import Home from "@/pages/home";
 import { getToken } from "@/lib/api";
 
 const queryClient = new QueryClient({
@@ -28,17 +30,48 @@ function Router() {
         <Route path="/transfer" component={Transfer} />
         <Route path="/history" component={History} />
         <Route path="/settings" component={Settings} />
+        <Route path="/join" component={JoinServers} />
         <Route component={NotFound} />
       </Switch>
     </Shell>
   );
 }
 
+// The home page shows once per visit; a reload inside the dashboard stays there.
+const ENTERED_KEY = "halo.entered";
+
+function readEntered() {
+  try {
+    return sessionStorage.getItem(ENTERED_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function writeEntered(v: boolean) {
+  try {
+    if (v) sessionStorage.setItem(ENTERED_KEY, "1");
+    else sessionStorage.removeItem(ENTERED_KEY);
+  } catch {
+    // Storage blocked: the home page just shows again next time.
+  }
+}
+
 function App() {
   const [authed, setAuthed] = useState(() => !!getToken());
+  const [entered, setEntered] = useState(readEntered);
+
+  const enter = (v: boolean) => {
+    writeEntered(v);
+    setEntered(v);
+  };
+
+  if (!entered) {
+    return <Home signedIn={authed} onEnter={() => enter(true)} />;
+  }
 
   if (!authed) {
-    return <Login onAuth={() => setAuthed(true)} />;
+    return <Login onAuth={() => setAuthed(true)} onBack={() => enter(false)} />;
   }
 
   return (

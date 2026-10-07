@@ -24,7 +24,7 @@ function kindOf(l: LogLine): Kind {
 }
 
 const kindTone: Record<Kind, string> = {
-  nuke: "gold",
+  nuke: "halo",
   claim: "ok",
   transfer: "off",
   warn: "warn",
@@ -47,13 +47,13 @@ function LogRow({ line }: { line: LogLine & { kind: Kind } }) {
   const time = new Date(line.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false });
 
   return (
-    <div className={cn("flex gap-3 px-4 py-1.5 text-[13px] leading-relaxed", line.kind === "nuke" && "bg-gold/[0.06]")}>
+    <div className={cn("flex gap-3 px-4 py-1.5 text-[13px] leading-relaxed", line.kind === "nuke" && "bg-halo/[0.06]")}>
       <span className="font-mono text-[12px] text-fg-3 shrink-0 pt-px tabular">{time}</span>
       <Dot tone={kindTone[line.kind]} className="mt-[7px]" />
       <span
         className={cn(
           "min-w-0 break-words",
-          line.kind === "error" ? "text-bad" : line.kind === "warn" ? "text-warn" : line.kind === "nuke" ? "text-gold font-medium" : line.kind === "claim" ? "text-fg" : "text-fg-2",
+          line.kind === "error" ? "text-bad" : line.kind === "warn" ? "text-warn" : line.kind === "nuke" ? "text-halo font-medium" : line.kind === "claim" ? "text-fg" : "text-fg-2",
         )}
       >
         {who && <span className="text-fg font-medium">{who} </span>}
@@ -171,7 +171,7 @@ export default function Overview() {
 
       <Panel className="grid grid-cols-2 lg:grid-cols-4 gap-px bg-line overflow-hidden">
         <Figure label="Claims since start" value={num(status?.totalClaimsToday)} sub={running ? "this run" : "stopped"} />
-        <Figure label="Points since start" value={num(status?.totalScrapToday)} tone="gold" sub="clover points" />
+        <Figure label="Points since start" value={num(status?.totalScrapToday)} tone="halo" sub="clover points" />
         <Figure
           label="Balance, all accounts"
           value={num(balance)}

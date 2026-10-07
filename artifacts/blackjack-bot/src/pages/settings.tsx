@@ -114,7 +114,7 @@ export default function Settings() {
       <PageHeader title="Settings" />
 
       {needsRestart && status?.running && (
-        <Panel className="px-5 py-4 flex flex-wrap items-center justify-between gap-3 border-gold/40">
+        <Panel className="px-5 py-4 flex flex-wrap items-center justify-between gap-3 border-halo/40">
           <span className="text-[13px]">Saved. Restart Halo so every account picks up the new settings.</span>
           <Button
             variant="primary"

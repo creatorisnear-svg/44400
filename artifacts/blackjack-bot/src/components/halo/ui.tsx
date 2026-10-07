@@ -6,7 +6,7 @@ import type { ConnectionStatus } from "@/lib/hooks";
 export function HaloMark({ size = 22, className }: { size?: number; className?: string }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden className={className}>
-      <circle cx="12" cy="12" r="7.5" stroke="var(--color-gold)" strokeWidth="2.75" />
+      <circle cx="12" cy="12" r="7.5" stroke="var(--color-halo)" strokeWidth="2.75" />
     </svg>
   );
 }
@@ -15,7 +15,7 @@ type ButtonVariant = "primary" | "secondary" | "ghost" | "danger";
 type ButtonSize = "sm" | "md" | "lg";
 
 const variants: Record<ButtonVariant, string> = {
-  primary: "bg-gold text-[#151515] hover:bg-gold-strong disabled:hover:bg-gold",
+  primary: "bg-halo text-[#151515] hover:bg-halo-strong disabled:hover:bg-halo",
   secondary: "bg-raised text-fg border border-line-strong hover:bg-hover",
   ghost: "text-fg-2 hover:text-fg hover:bg-raised",
   danger: "text-bad border border-bad/35 hover:bg-bad/10",
@@ -40,7 +40,7 @@ export const Button = React.forwardRef<
     disabled={disabled || busy}
     className={cn(
       "inline-flex items-center justify-center gap-2 rounded-md font-medium whitespace-nowrap transition-colors",
-      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold/60",
+      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-halo/60",
       "disabled:opacity-45 disabled:cursor-not-allowed",
       variants[variant],
       sizes[size],
@@ -56,7 +56,7 @@ Button.displayName = "Button";
 
 const fieldBase =
   "w-full rounded-md bg-canvas border border-line-strong text-fg placeholder:text-fg-3 " +
-  "focus:outline-none focus:border-gold/70 transition-colors disabled:opacity-50";
+  "focus:outline-none focus:border-halo/70 transition-colors disabled:opacity-50";
 
 export const Input = React.forwardRef<HTMLInputElement, React.InputHTMLAttributes<HTMLInputElement>>(
   ({ className, ...props }, ref) => (
@@ -146,13 +146,13 @@ const statusText: Record<ConnectionStatus, string> = {
 
 const dotColor: Record<string, string> = {
   connected: "bg-ok",
-  connecting: "bg-gold animate-pulse",
+  connecting: "bg-halo animate-pulse",
   disconnected: "bg-fg-3",
   error: "bg-bad",
   ok: "bg-ok",
   warn: "bg-warn",
   bad: "bg-bad",
-  gold: "bg-gold",
+  halo: "bg-halo",
   off: "bg-fg-3",
 };
 
@@ -244,8 +244,8 @@ export function Toggle({
       onClick={() => onChange(!checked)}
       className={cn(
         "relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors disabled:opacity-45",
-        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold/60",
-        checked ? "bg-gold" : "bg-line-strong",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-halo/60",
+        checked ? "bg-halo" : "bg-line-strong",
       )}
     >
       <span
@@ -267,11 +267,11 @@ export function Spinner({ label = "Loading" }: { label?: string }) {
 }
 
 /** Label/value pair used in the figures strip. */
-export function Figure({ label, value, sub, tone }: { label: string; value: React.ReactNode; sub?: React.ReactNode; tone?: "gold" | "ok" }) {
+export function Figure({ label, value, sub, tone }: { label: string; value: React.ReactNode; sub?: React.ReactNode; tone?: "halo" | "ok" }) {
   return (
     <div className="bg-panel px-4 py-3.5 min-w-0">
       <div className="text-[12px] text-fg-3">{label}</div>
-      <div className={cn("mt-1 text-[22px] leading-tight font-semibold tabular tracking-tight truncate", tone === "gold" ? "text-gold" : tone === "ok" ? "text-ok" : "text-fg")}>
+      <div className={cn("mt-1 text-[22px] leading-tight font-semibold tabular tracking-tight truncate", tone === "halo" ? "text-halo" : tone === "ok" ? "text-ok" : "text-fg")}>
         {value}
       </div>
       {sub && <div className="mt-0.5 text-[12px] text-fg-3 truncate">{sub}</div>}

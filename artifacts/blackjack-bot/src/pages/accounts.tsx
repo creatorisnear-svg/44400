@@ -128,7 +128,7 @@ function AccountRow({ account, open, onToggle, defaultTo }: { account: Account; 
           </div>
         </div>
         <div className="hidden md:block"><ConnectionLabel status={account.connectionStatus} enabled={account.enabled} /></div>
-        <div className={cn("text-right text-sm tabular font-medium shrink-0", account.balance > 0 ? "text-gold" : "text-fg-3")}>{num(account.balance)}</div>
+        <div className={cn("text-right text-sm tabular font-medium shrink-0", account.balance > 0 ? "text-halo" : "text-fg-3")}>{num(account.balance)}</div>
         <div className="hidden md:block text-right text-sm tabular text-fg-2">{num(account.totalClaimed)}</div>
         <div className="hidden md:block text-right text-sm tabular text-fg-2">{num(account.totalTransferred)}</div>
         <ChevronDown className={cn("w-4 h-4 text-fg-3 shrink-0 transition-transform", open && "rotate-180")} />

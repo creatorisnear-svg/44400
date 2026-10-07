@@ -33,7 +33,7 @@ export function TransferProgress({ order, compact }: { order: FillOrder; compact
         </div>
 
         <div className="h-1.5 rounded-full bg-raised overflow-hidden">
-          <div className={cn("h-full transition-all duration-700", order.done ? "bg-ok" : "bg-gold")} style={{ width: `${pct}%` }} />
+          <div className={cn("h-full transition-all duration-700", order.done ? "bg-ok" : "bg-halo")} style={{ width: `${pct}%` }} />
         </div>
 
         <div className="flex flex-wrap justify-between gap-x-6 gap-y-1 text-[13px] tabular">

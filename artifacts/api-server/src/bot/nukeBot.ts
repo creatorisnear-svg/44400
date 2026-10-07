@@ -41,6 +41,25 @@ interface ActiveFillOrder {
   cancelRequested: boolean;
 }
 
+export type JoinPace = "careful" | "quick";
+
+interface JoinStep {
+  accountId: number;
+  label: string;
+  invite: string;
+  status: "pending" | "joining" | "joined" | "already" | "skipped" | "error";
+  error?: string;
+}
+
+interface ActiveJoinJob {
+  invites: { code: string; guildId: string | null; name: string }[];
+  steps: JoinStep[];
+  pace: JoinPace;
+  nextAt: number | null;
+  done: boolean;
+  cancelRequested: boolean;
+}
+
 interface BotStatusData {
   running: boolean;
   accounts: {
@@ -58,9 +77,10 @@ interface BotStatusData {
   uptime: number;
   nextAutoTransferAt: number | null;
   fillOrder: ActiveFillOrder | null;
+  joinJob: ActiveJoinJob | null;
 }
 
-const delay = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
+const delay =(ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 const randDelay = (min: number, max: number) =>
   delay(Math.floor(Math.random() * (max - min) + min));
 
@@ -145,6 +165,19 @@ function parseScrapFromText(raw: string): number {
   return 0;
 }
 
+// Plain-language reason for a failed server join.
+function joinErrorText(err: unknown): string {
+  const e = err as any;
+  const msg = String(e?.message ?? err);
+  if (/captcha/i.test(msg)) return "Discord wants a captcha. Join this one by hand.";
+  if (e?.code === 10006 || /unknown invite/i.test(msg)) return "Invite expired.";
+  if (e?.code === 30001 || /maximum number of (guilds|servers)/i.test(msg)) return "Already in 100 servers.";
+  if (e?.code === 40007 || /banned/i.test(msg)) return "Banned from this server.";
+  if (e?.code === 40002 || /verif/i.test(msg)) return "Account must verify its email or phone first.";
+  if (e?.httpStatus === 429 || /rate ?limit/i.test(msg)) return "Discord rate limited this account.";
+  return msg;
+}
+
 class NukeBot {
   private runtimes: Map<number, AccountRuntime> = new Map();
   private running = false;
@@ -155,6 +188,7 @@ class NukeBot {
   private autoTransferTimer: ReturnType<typeof setInterval> | null = null;
   private nextAutoTransferAt: number | null = null;
   private activeFillOrder: ActiveFillOrder | null = null;
+  private activeJoinJob: ActiveJoinJob | null = null;
 
   getStatus(): BotStatusData {
     const accounts = [...this.runtimes.values()].map((r) => ({
@@ -175,6 +209,7 @@ class NukeBot {
       uptime: this.startTime ? Math.floor((Date.now() - this.startTime) / 1000) : 0,
       nextAutoTransferAt: this.nextAutoTransferAt,
       fillOrder: this.activeFillOrder,
+      joinJob: this.activeJoinJob,
     };
   }
 
@@ -422,6 +457,7 @@ class NukeBot {
 
   async stop(): Promise<void> {
     botLog.info("Stopping all accounts...");
+    this.cancelJoinJob();
     if (this.autoTransferTimer) {
       clearInterval(this.autoTransferTimer);
       this.autoTransferTimer = null;
@@ -1354,6 +1390,118 @@ class NukeBot {
       });
       await delay(60_000); // 1 minute between accounts
     }
+  }
+
+  /** The servers the online accounts are in, most shared first. */
+  listServers(): { online: number; servers: { id: string; name: string; accountIds: number[] }[] } {
+    const online = [...this.runtimes.values()].filter((r) => r.status === "connected" && r.client);
+    const servers = new Map<string, { id: string; name: string; accountIds: number[] }>();
+    for (const runtime of online) {
+      for (const guild of (runtime.client as any).guilds.cache.values()) {
+        const entry = servers.get(guild.id) ?? { id: String(guild.id), name: String(guild.name ?? guild.id), accountIds: [] };
+        entry.accountIds.push(runtime.accountId);
+        servers.set(guild.id, entry);
+      }
+    }
+    return {
+      online: online.length,
+      servers: [...servers.values()].sort(
+        (a, b) => b.accountIds.length - a.accountIds.length || a.name.localeCompare(b.name),
+      ),
+    };
+  }
+
+  /**
+   * Join servers tab: puts the chosen online accounts into each invite's
+   * server, one account at a time. Runs in the background next to the nuke
+   * watcher; progress shows up in getStatus().joinJob.
+   */
+  async startJoinJob(codes: string[], accountIds: number[] | null, pace: JoinPace): Promise<void> {
+    if (this.activeJoinJob && !this.activeJoinJob.done) {
+      throw new Error("Accounts are already joining. Wait for it to finish or cancel it.");
+    }
+    if (!this.running) throw new Error("Start Halo first so your accounts are online.");
+
+    const runtimes = [...this.runtimes.values()].filter(
+      (r) => r.status === "connected" && r.client && (!accountIds || accountIds.includes(r.accountId)),
+    );
+    if (runtimes.length === 0) throw new Error("None of the chosen accounts are online.");
+
+    // Look each invite up once, so a dead invite fails here instead of on every account.
+    const invites: ActiveJoinJob["invites"] = [];
+    for (const code of codes) {
+      const invite = await (runtimes[0].client as any).fetchInvite(code).catch(() => null);
+      if (!invite) throw new Error(`Invite "${code}" doesn't work. It may have expired.`);
+      invites.push({ code, guildId: invite.guild?.id ?? null, name: invite.guild?.name ?? code });
+    }
+
+    const steps: JoinStep[] = invites.flatMap((inv) =>
+      runtimes.map((r) => ({ accountId: r.accountId, label: r.label, invite: inv.code, status: "pending" as const })),
+    );
+    const job: ActiveJoinJob = { invites, steps, pace, nextAt: null, done: false, cancelRequested: false };
+    this.activeJoinJob = job;
+    botLog.info(`Joining ${runtimes.length} account(s) to ${invites.map((i) => i.name).join(", ")}...`);
+    this.runJoinJob(job).catch((e) => {
+      botLog.error(`Server joining stopped: ${(e as Error).message}`);
+      job.done = true;
+    });
+  }
+
+  cancelJoinJob(): void {
+    if (this.activeJoinJob && !this.activeJoinJob.done) {
+      this.activeJoinJob.cancelRequested = true;
+      botLog.info("Server joining cancelled.");
+    }
+  }
+
+  private async runJoinJob(job: ActiveJoinJob): Promise<void> {
+    // Joining many accounts in a burst is what gets them captcha'd or locked.
+    const [min, max] = job.pace === "quick" ? [5_000, 10_000] : [20_000, 45_000];
+    let joinedOne = false;
+
+    for (const step of job.steps) {
+      if (job.cancelRequested) break;
+      const invite = job.invites.find((i) => i.code === step.invite)!;
+      const runtime = this.runtimes.get(step.accountId);
+      let client = runtime?.status === "connected" ? (runtime.client as any) : null;
+      if (client && invite.guildId && client.guilds.cache.has(invite.guildId)) {
+        step.status = "already";
+        continue;
+      }
+
+      if (joinedOne) {
+        job.nextAt = Date.now() + Math.floor(min + Math.random() * (max - min));
+        // Short sleeps so Cancel takes effect right away.
+        while (Date.now() < job.nextAt && !job.cancelRequested) await delay(500);
+        job.nextAt = null;
+        if (job.cancelRequested) break;
+        // The account may have dropped while we waited.
+        client = runtime?.status === "connected" ? (runtime.client as any) : null;
+      }
+      if (!client) {
+        step.status = "error";
+        step.error = "Account is offline.";
+        continue;
+      }
+
+      step.status = "joining";
+      try {
+        await client.acceptInvite(step.invite);
+        step.status = "joined";
+        botLog.info(`[${step.label}] Joined ${invite.name}`, step.accountId);
+      } catch (err) {
+        step.status = "error";
+        step.error = joinErrorText(err);
+        botLog.warn(`[${step.label}] Could not join ${invite.name}: ${step.error}`, step.accountId);
+      }
+      joinedOne = true;
+    }
+
+    for (const step of job.steps) if (step.status === "pending") step.status = "skipped";
+    job.nextAt = null;
+    job.done = true;
+    const joined = job.steps.filter((s) => s.status === "joined").length;
+    botLog.info(`Server joining ${job.cancelRequested ? "cancelled" : "finished"}: ${joined} joined.`);
   }
 
   /**
